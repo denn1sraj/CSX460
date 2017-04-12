@@ -46,8 +46,25 @@ attach(flights.df) # attach the data frame flights.df
 opar <- par(no.readonly=TRUE) # Make a copy of the current settings
 par(mfcol = c(2, 1))  # set the graph up to display side by side histograms 
                       # for arrival and departure delay
-hist(arr_delay)
-hist(dep_delay)
+library(ggplot2)
+qplot(arr_delay, 
+      geom = "histogram",
+      binwidth = 1, 
+      main = "Histogram for Arrival Delay", 
+      xlab = "Delay",
+      ylab = "Frequency",
+      fill=I("blue"), 
+      col=I("red"), 
+      horizontal = T)
+qplot(dep_delay, 
+      geom = "histogram",
+      binwidth = 1, 
+      main = "Histogram for Arrival Delay", 
+      xlab = "Delay",
+      ylab = "Frequency",
+      fill=I("blue"), 
+      col=I("red"), 
+      horizontal = T)
 detach(flights.df)
 par(opar)
 
@@ -60,12 +77,11 @@ Plot a scatterplot of date vs arrival delay
 ```{r}
 library(stringr)
 library(dplyr)
+library(ggplot2)
 flights.df <- mutate(flights.df, fdate = str_c(flights.df$year, flights.df$month, flights.df$day, sep = "-"))
 flights.df <- mutate(flights.df, fdate = as.Date(fdate, format = "%Y-%m-%d"))
 attach(flights.df)
-plot(fdate, arr_delay, 
-     ylim = range (-100:1100)
-     )
+qplot(fdate, arr_delay)  + geom_point(shape=1)
 detach(flights.df)
 ```
 
