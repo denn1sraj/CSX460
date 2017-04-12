@@ -24,16 +24,15 @@ Put code in each of the sections provided.
 Using the `readr` package read the `flights` data.
 
 ```{r}
-library(readr) # import the library reader note - use install.packages("readr") if not installed
-# create a data table using read_csv from readr
+library(readr) # import the library readr
 # if working directory does not have data/flights change "data/flights.csv" to correct directory
 flights.df <- read_csv("data/flights.csv", col_types = cols(
-                         day = col_character(),      #import day is character string 
-                         month = col_character(),    #import day is character string 
-                         year = col_character()      #import day is character string 
+                         day = col_character(),      #import day as character string 
+                         month = col_character(),    #import month as character string 
+                         year = col_character()      #import year as character string 
                          )
                        )
-spec(flights.df)           #double checking that year / month / day have been imported as a string 
+spec(flights.df)           #confirm that year / month / day have been imported as a string 
 
 ```
 
@@ -44,29 +43,28 @@ Plot a histogram of arrival delays and departure delays
 ```{r}
 attach(flights.df) # attach the data frame flights.df
 opar <- par(no.readonly=TRUE) # Make a copy of the current settings
-par(mfcol = c(2, 1))  # set the graph up to display side by side histograms 
+par(mfcol = c(1, 2))  # set the graph up to display side by side histograms 
                       # for arrival and departure delay
-library(ggplot2)
-qplot(arr_delay, 
-      geom = "histogram",
-      binwidth = 1, 
+library(ggplot2)  # import library ggplot2
+qplot(arr_delay,  # plot using qplot
+      geom = "histogram", # define the plot has a histogram
+      binwidth = 25, 
       main = "Histogram for Arrival Delay", 
       xlab = "Delay",
       ylab = "Frequency",
       fill=I("blue"), 
-      col=I("red"), 
-      horizontal = T)
+      col=I("red")
+      )
 qplot(dep_delay, 
       geom = "histogram",
-      binwidth = 1, 
-      main = "Histogram for Arrival Delay", 
+      binwidth = 25, 
+      main = "Histogram for Departure Delay", 
       xlab = "Delay",
       ylab = "Frequency",
       fill=I("blue"), 
-      col=I("red"), 
-      horizontal = T)
+      col=I("red"))
 detach(flights.df)
-par(opar)
+par(opar) # reset the original par() settings
 
 ```
 
@@ -75,13 +73,23 @@ par(opar)
 Plot a scatterplot of date vs arrival delay 
 
 ```{r}
-library(stringr)
+library(stringr) # import the stringr library
 library(dplyr)
 library(ggplot2)
-flights.df <- mutate(flights.df, fdate = str_c(flights.df$year, flights.df$month, flights.df$day, sep = "-"))
+# use dplyer to create new column in data frame (fdate) which creates concatenated string from the 
+# year / month / day columns
+flights.df <- mutate(flights.df, 
+                     fdate = str_c(flights.df$year, 
+                                   flights.df$month, 
+                                   flights.df$day, sep = "-"))
+# convert the character string to date using formatters
 flights.df <- mutate(flights.df, fdate = as.Date(fdate, format = "%Y-%m-%d"))
 attach(flights.df)
-qplot(fdate, arr_delay)  + geom_point(shape=1)
+#plot the scatter plot
+qplot(fdate, arr_delay,   
+      main = "Date ~ Arrival Delay", 
+      ylab = "Arrival Delay", 
+      xlab = "Date")
 detach(flights.df)
 ```
 
@@ -93,9 +101,11 @@ Create a `table`, counting the flights by origin airports and carrier.
 
 ```{r}
 library(dplyr)
-options(dplyr.width = Inf)
+# create data frame grouped by origin and carrier
 g <- group_by(flights.df, origin, carrier)
+# use count aggregate to create an object based on group counts
 x <- count(g)
+# use View() to view the entire table
 View(x)
 ```
 
@@ -105,11 +115,12 @@ View(x)
 **Read** in the other data sets. Use methods to join the data together to create a single table containing one record per row.  (HINT: see `?data.table` or `?dplyr::join`)
 
 ```{r}
+# read data ine from data/*.csv
 library(readr)
 airports.df <- read_csv("data/airports.csv")
 planes.df <- read_csv("data/planes.csv")
 weather.df <- read_csv("data/weather.csv")
-
+# use dplyer to create left joins to pull data into a final combined data frame
 library(dplyr)
 final.df <- left_join(flights.df, planes.df, by = "tailnum")
 final.df <- left_join(final.df, airports.df, by = c("origin" = "faa"))
