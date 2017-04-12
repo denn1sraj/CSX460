@@ -1,7 +1,7 @@
 ---
 title: "Assingment NYC Flight Data"
-author: "Your Name Here"
-date: "October 5, 2016"
+author: "Dennis Raj"
+date: "April 11, 2017"
 output: html_document
 ---
 
@@ -24,8 +24,17 @@ Put code in each of the sections provided.
 Using the `readr` package read the `flights` data.
 
 ```{r}
-
-
+library(readr) # import the library reader note - use install.packages("readr") if not installed
+# create a data table using read_csv from readr
+# if working directory does not have data/flights change "data/flights.csv" to correct directory
+flights.df <- read_csv("data/flights.csv", col_types = cols(
+                         day = col_character(),      #import day is character string 
+                         month = col_character(),    #import day is character string 
+                         year = col_character()      #import day is character string 
+                         )
+                       )
+spec(flights.df)           #double checking that year / month / day have been imported as a string 
+flights.df
 ```
 
 ## Numeric Variables  
@@ -33,6 +42,14 @@ Using the `readr` package read the `flights` data.
 Plot a histogram of arrival delays and departure delays 
 
 ```{r}
+attach(flights.df) # attach the data frame flights.df
+opar <- par(no.readonly=TRUE) # Make a copy of the current settings
+par(mfcol = c(2, 1))  # set the graph up to display side by side histograms 
+                      # for arrival and departure delay
+hist(arr_delay)
+hist(dep_delay)
+detach(flights.df)
+par(opar)
 
 ```
 
@@ -41,7 +58,15 @@ Plot a histogram of arrival delays and departure delays
 Plot a scatterplot of date vs arrival delay 
 
 ```{r}
-
+library(stringr)
+library(dplyr)
+flights.df <- mutate(flights.df, fdate = str_c(flights.df$year, flights.df$month, flights.df$day, sep = "-"))
+flights.df <- mutate(flights.df, fdate = as.Date(fdate, format = "%Y-%m-%d"))
+attach(flights.df)
+plot(fdate, arr_delay, 
+     ylim = range (-100:1100)
+     )
+detach(flights.df)
 ```
 
 
@@ -51,7 +76,9 @@ Plot a scatterplot of date vs arrival delay
 Create a `table`, counting the flights by origin airports and carrier.
 
 ```{r}
-
+library(dplyr)
+g <- group_by(flights.df, origin, carrier)
+tally(g)
 
 ```
 
