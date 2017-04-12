@@ -34,7 +34,7 @@ flights.df <- read_csv("data/flights.csv", col_types = cols(
                          )
                        )
 spec(flights.df)           #double checking that year / month / day have been imported as a string 
-flights.df
+
 ```
 
 ## Numeric Variables  
@@ -77,9 +77,10 @@ Create a `table`, counting the flights by origin airports and carrier.
 
 ```{r}
 library(dplyr)
+options(dplyr.width = Inf)
 g <- group_by(flights.df, origin, carrier)
-tally(g)
-
+x <- count(g)
+View(x)
 ```
 
 
@@ -88,7 +89,16 @@ tally(g)
 **Read** in the other data sets. Use methods to join the data together to create a single table containing one record per row.  (HINT: see `?data.table` or `?dplyr::join`)
 
 ```{r}
+library(readr)
+airports.df <- read_csv("data/airports.csv")
+planes.df <- read_csv("data/planes.csv")
+weather.df <- read_csv("data/weather.csv")
 
+library(dplyr)
+final.df <- left_join(flights.df, planes.df, by = "tailnum")
+final.df <- left_join(final.df, airports.df, by = c("origin" = "faa"))
+final.df <- left_join(final.df, weather.df, by = c("origin" = "origin", "time_hour" = "time_hour"))
+glimpse(final.df)
 ```
 
 
