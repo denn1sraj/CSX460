@@ -21,13 +21,75 @@ Break the process down into steps and create a codeblock for each step.
 (You can start with the data that you created last week.)
 
 
-## Step 1: [Step Name] 
+## Step 1: Import Data & Setup Libraries
 
-```{r "Step 1: [Step Name]" }
+```{r "Step 1: Import Data and Setup Libraries" }
+library(dplyr)
+library(readr)
+library(tidyr)
+library(ggplot2)
+# make sure flights_final.csv is in the current working directory, if not use Rstudio or setwd() 
+# set the working directory to read in the csv
+flights <- tbl_df(read_csv("flights_final.csv", col_names = TRUE))
+
+#double check the structure of flights
+glimpse(flights)
+```
+
+
+## Step 2: Visual Exploration
+```{r "Step 2: Visual Exploration" }
+
+# visualize the dependent variable (arrival delays)
+# bin width set to 60 minutes arbitrarily to represent hours
+flights$arr_delay %>% qplot( , binwidth = 60)
+
+
+#graph arrival delays, discuss learnings from graph
+
+#plot potential predictors with simple scatter plot 
+#month, dep_delay, carrier
+#origin
+#dest
+#air_time
+#distance
+#year of plane
+#type of plane
+#engine
+#temp
+#wind_dir
+#wind_gust
+#precip
+#pressure
+#visib
+#faa for airport name
 
 ```
 
-## Step 2: ...
+## Step 3: Prep the data 
+```{r "Step 3: Prep the data" }
+#remove NA
+
+```
+
+## Step 4: Naive Model
+```{r "Step 4: Naive Model" }
+
+
+```
+
+## Step 6: Create a training sample
+```{r "Step 5: Train the Model" }
+
+
+```
+
+
+## Step 7: Evaluate the model
+```{r "Step 5: Train the Model" }
+
+
+```
 
 
 
