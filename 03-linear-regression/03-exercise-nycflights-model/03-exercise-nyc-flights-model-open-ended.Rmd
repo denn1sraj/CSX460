@@ -1,8 +1,10 @@
 ---
-title: "NYCFlights: Arrival Delay Regression Model (Open Ended Variation)"
+title: 'NYCFlights: Arrival Delay Regression Model (Open Ended Variation)'
 author: "Dennis Raj"
 date: "April 18, 2017"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -24,9 +26,10 @@ Break the process down into steps and create a codeblock for each step.
 ## Step 1: Import Data & Setup Libraries
 
 ```{r "Step 1: Import Data and Setup Libraries" }
+#load libraries
 library(dplyr)
+library(magrittr)
 library(readr)
-library(tidyr)
 library(ggplot2)
 # make sure flights_final.csv is in the current working directory, if not use Rstudio or setwd() 
 # set the working directory to read in the csv
@@ -35,65 +38,118 @@ flights <- tbl_df(read_csv("flights_final.csv", col_names = TRUE))
 #double check the structure of flights
 glimpse(flights)
 ```
+## Step 2: Prep the data 
+```{r "Step 2: Prep the data" }
+# remove NA from flights$arr_delay
+flights_clean <- flights %>% filter(!is.na(arr_delay)) %>% arrange(desc(arr_delay))
 
+# count the NA values in arr_delay
+sum(is.na(flights$arr_delay))
 
-## Step 2: Visual Exploration
-```{r "Step 2: Visual Exploration" }
+# remove the row names row that was imported from the dataset
+flights_clean <- flights_clean[2:length(flights_clean)]
+
+# check the top and the bottom of the cleaned data set
+head(flights_clean$arr_delay)
+tail(flights_clean$arr_delay)
+
+```
+
+With the data cleaned, we can start to visualize the data.  
+
+## Step 3: Visual Exploration
+```{r "Step 3: Visual Exploration" }
 
 # visualize the dependent variable (arrival delays)
 # bin width set to 60 minutes arbitrarily to represent hours
-flights$arr_delay %>% qplot( , binwidth = 60)
+flights_clean$arr_delay %>% qplot( , binwidth = 60)
 
+# plot potential predictors, quick and dirty 
 
-#graph arrival delays, discuss learnings from graph
+qplot(y=flights_clean$arr_delay, x= flights_clean$dep_delay) + geom_smooth()
 
-#plot potential predictors with simple scatter plot 
-#month, dep_delay, carrier
-#origin
-#dest
-#air_time
-#distance
-#year of plane
-#type of plane
-#engine
-#temp
-#wind_dir
-#wind_gust
-#precip
-#pressure
-#visib
-#faa for airport name
+qplot(y=flights_clean$arr_delay, x= flights_clean$origin) + geom_smooth()
 
+qplot(y=flights_clean$arr_delay, x= flights_clean$distance) + geom_smooth()
 ```
 
-## Step 3: Prep the data 
-```{r "Step 3: Prep the data" }
-#remove NA
+It appears that our arrival delays have a right skew, indicating the presence of some outliers of large arrival delay values. We also have missing values (NA) in the arrival delay column, so we know that we need to clean the data before applying it. 
 
-```
 
 ## Step 4: Naive Model
 ```{r "Step 4: Naive Model" }
 
+# develop a naive model based on the average (mean) of arrival delays
+arr_delay_mean <- flights_clean$arr_delay %>% mean()
 
+# add a new column for arrival delay mean to the original 
+flights_clean$arr_delay_mean <- arr_delay_mean
+
+# create a new data frame from the original flights_clean
+naive.rmse  <- flights_clean %>% select(arr_delay, arr_delay_mean)
+
+# calculate a new column from the difference between arrival delay and mean arrival delay
+naive.rmse$mean_distance <- naive.rmse$arr_delay - naive.rmse$arr_delay_mean
+
+# calculate the RMSE from the new data frame
+naive_rmse <- naive.rmse$mean_distance %>% .^2 %>% mean %>% sqrt
+print(naive_rmse)
 ```
 
-## Step 6: Create a training sample
-```{r "Step 5: Train the Model" }
+The RSME of Naive model is 44.63. 
+
+## Step 5: Create a training sample
+```{r "Step 5: Create a training sample" }
+# create a sample data set for building the model, selecting only the needed columns
+sample_flights <- flights_clean %>% 
+              select(arr_delay, month.x, dep_delay, carrier, origin, dest, air_time, distance, 
+                     engine, wind_speed, pressure, temp, visib) %>%
+                      sample_n(1000)
+```
 
 
+## Step 6: Build a model
+```{r "Step 6: Build a model" }
+# create a sample fit to review the potential linear regression
+fit <- sample_flights %>% lm(formula = arr_delay ~ . )
+summary(fit)
+
+# create the full fit using likely predictors
+fit_full <- flights_clean %>% select(arr_delay, dep_delay, origin, distance) %>%
+                                                          lm(formula = arr_delay ~ .)
+summary(fit_full)
 ```
 
 
 ## Step 7: Evaluate the model
-```{r "Step 5: Train the Model" }
-
+```{r "Step 7: Evaluate the model" }
+# test the effectiveness of the model using RMSE
+model1_rmse <- fit_full %>% resid %>% .^2 %>% mean %>% sqrt
+print(model1_rmse)
 
 ```
 
+The RMSE of our linear regression model is 17.9258
 
+
+## Step 8: Attempt to improve performance
+```{r "Step 8: Attempt to improve performance" }
+# create a second model with more predictors included from the data set
+fit_full2 <- flights_clean %>% select(arr_delay, month.x, 
+                                     dep_delay, carrier, origin, dest, air_time, distance, engine,
+                                     wind_speed, pressure, temp, visib) %>%
+                                                        lm(formula = arr_delay ~ . )
+summary(fit_full2)
+
+# test the effectiveness of the model using RMSE
+model2_rmse <- fit_full2 %>% resid %>% .^2 %>% mean %>% sqrt
+print(model2_rmse)
+```
+
+Our second model got the RMSE down to 13.63759
 
 # Question:
 
 Is this a good model?  (Write your answer here.)
 
+The model is ok, given the simplicity of a linear regression analysis. We moved from a RMSE in our naive model of 44.633 to a simple linear regression of arrival delay and depature delay, origin and distance which decreased our RMSE to 17.9258 (Model 1), which is a significant gain over the naive model. When we added more factors into the regression (Model 2) we were able to reduce the RMSE to 13.6375, which is a pretty good gain over Model 1. I think future analysis could lead to a lower score by working with subject matter experts (Pilots, FAA analysts, Air Traffic Controllers) to determine what factors lead to a plane not being able to take off or land, which would lead to delays. Future analysis could also see if other ways to fit the data outside of simple linear regression would make sense, like quadratic, exponential or logrithmic. 
