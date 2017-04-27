@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ---
 title: 'NYCFlights: Arrival Delay Regression Model (Open Ended Variation)'
 author: "Dennis Raj"
@@ -153,3 +154,42 @@ Our second model got the RMSE down to 13.63759
 Is this a good model?  (Write your answer here.)
 
 The model is ok, given the simplicity of a linear regression analysis. We moved from a RMSE in our naive model of 44.633 to a simple linear regression of arrival delay and depature delay, origin and distance which decreased our RMSE to 17.9258 (Model 1), which is a significant gain over the naive model. When we added more factors into the regression (Model 2) we were able to reduce the RMSE to 13.6375, which is a pretty good gain over Model 1. I think future analysis could lead to a lower score by working with subject matter experts (Pilots, FAA analysts, Air Traffic Controllers) to determine what factors lead to a plane not being able to take off or land, which would lead to delays. Future analysis could also see if other ways to fit the data outside of simple linear regression would make sense, like quadratic, exponential or logrithmic. 
+=======
+---
+title: "NYCFlights: Arrival Delay Regression Model (Open Ended Variation)"
+author: "[Your Name]"
+date: "[Today's Date]"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# NYCFlights Model
+
+Using the rectangular data that you created last week create a model for `arr_delay`. Follow a well defined process for creating a model as discussed in class or from one of the readings. 
+
+Break the process down into steps and create a codeblock for each step. 
+ - Use as many steps you feel as necessary
+ - Concisely explain each step 
+ - Show all work
+ 
+(You can start with the data that you created last week.)
+
+
+## Step 1: [Step Name] 
+
+```{r "Step 1: [Step Name]" }
+
+```
+
+## Step 2: ...
+
+
+
+# Question:
+
+Is this a good model?  (Write your answer here.)
+
+>>>>>>> CSX460/master
