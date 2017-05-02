@@ -1,7 +1,7 @@
 ---
 title: "NYCFlights: Arrival Delay Logictic Model"
-author: "[Your Name]"
-date: "[Today's Date]"
+author: "Dennis Raj"
+date: "April 26, 2017"
 output: html_document
 ---
 
