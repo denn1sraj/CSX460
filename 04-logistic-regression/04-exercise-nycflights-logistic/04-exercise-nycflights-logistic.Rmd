@@ -12,6 +12,8 @@ library(dplyr)
 library(magrittr)
 library(readr)
 library(ggplot2)
+library(ROCR)
+library(caTools)
 
 
 # make sure flights_final.csv is in the current working directory, if not use Rstudio or setwd() 
@@ -24,23 +26,55 @@ flights <- tbl_df(read_csv("flights_final.csv", col_names = TRUE))
 # from the assignment -- predict delays >= 22 minutes
 
 # Filter the data to remove na's and limit the data to arrival delays greater than or equal to 22 minutes 
-flights$cat_delay <- "normal"
+flights$cat_delay <- "ontime"
 flights$cat_delay[flights$arr_delay >= 22] <- "late"
 flights$cat_delay <- factor(flights$cat_delay)
 
-flights %>% select(cat_delay, arr_delay) %>% group_by(cat_delay) %>% summarize(count = n())
+#Double check the counts of each of the types of flights
+flights %>% select(cat_delay, arr_delay) %>% group_by(cat_delay) %>% 
+                            summarize(count = n())
 
-#create the y values for our predicted variable??? 
 
-                      
+
+
+#limit the data to variables of interest
+
+flights_clean <- flights %>% select(cat_delay, month.x, dep_delay, carrier, origin, dest, distance)
 ```
 
 ```{r Step 3: Initial Investigation}
 
-fit1 <- 
+ggplot(data = flights_clean, aes(cat_delay)) + geom_histogram(stat="count")
 
-fit_start <- glm(formula = cat_delay ~ carrier + distance + origin, data = flights, family = "binomial")
+split <- sample.split(flights_clean$cat_delay, SplitRatio = 0.75)
+flights_train <- subset(flights_clean, split==TRUE)
+flights_test <- subset(flights_clean, split == FALSE)
+
+#logistic regression model - first test
+
+fit_start <- glm(formula = cat_delay ~ month.x + dep_delay + carrier + origin + dest + distance, data = flights_train , family = binomial(link = "logit"))
+
+#summary of the fit
 summary(fit_start)
+
+#testing the anova of the fit using Chi-squared
+anova(fit_start, test = 'Chisq')
+
+#plotting the fit
+plot(fit_start)
+
+#testing the fit with the new data
+fit_test <- glm(formula = cat_delay ~ month.x + dep_delay + carrier + origin + dest + distance, data = flights_test , family = binomial(link = "logit"))
+
+#summary of the fit
+summary(fit_test)
+
+#testing the anova of the new fit
+anova(fit_test, test = 'Chisq')
+
+#plotting the new fit
+plot(fit_test)
+
 ```
 
 ## Logsitic and Inverse Logistic Transformation 
@@ -71,9 +105,21 @@ KNIT YOUR DOCUMENT AS *HTML* AND SUBMIT IT AND THE `Rmd` file to your repository
 # Question:
 
 Is this a good model?  (Write your answer here.)
-
+Probably not, since I wasn't able to complete this assignment. 
 
 # PART B:
 
 Your model should be good at explaining tardiness. Now, assume that your job is to predict arrival delays a month in advance. You can no longer use all the features in your model. Retrain your model using only features that will be *known* only a month in advance of the departure time.  Show all steps as above.
 
+```{r Step 4: Testing the model with limited data}
+
+flights_update <- flights %>% select(cat_delay, month.x, carrier, origin, dest)
+
+fit_update <- glm(formula = cat_delay ~ month.x + carrier + origin + dest, data = flights_clean, family = binomial(link = "logit"))
+
+summary(fit_update)
+
+anova(fit_update, test = 'Chisq')
+
+plot(fit_update)
+```
