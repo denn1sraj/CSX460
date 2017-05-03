@@ -13,11 +13,35 @@ library(magrittr)
 library(readr)
 library(ggplot2)
 
+
 # make sure flights_final.csv is in the current working directory, if not use Rstudio or setwd() 
 # set the working directory to read in the csv
 flights <- tbl_df(read_csv("flights_final.csv", col_names = TRUE))
 ```
 
+```{r Step 2: Data Cleaning}
+
+# from the assignment -- predict delays >= 22 minutes
+
+# Filter the data to remove na's and limit the data to arrival delays greater than or equal to 22 minutes 
+flights$cat_delay <- "normal"
+flights$cat_delay[flights$arr_delay >= 22] <- "late"
+flights$cat_delay <- factor(flights$cat_delay)
+
+flights %>% select(cat_delay, arr_delay) %>% group_by(cat_delay) %>% summarize(count = n())
+
+#create the y values for our predicted variable??? 
+
+                      
+```
+
+```{r Step 3: Initial Investigation}
+
+fit1 <- 
+
+fit_start <- glm(formula = cat_delay ~ carrier + distance + origin, data = flights, family = "binomial")
+summary(fit_start)
+```
 
 ## Logsitic and Inverse Logistic Transformation 
 
