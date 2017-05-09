@@ -1,7 +1,7 @@
 ---
 title: "Resampling"
-author: "Your Name Here"
-date: "October 5, 2015"
+author: "Dennis Raj"
+date: "May 9, 2017"
 output: html_document
 ---
 
@@ -19,9 +19,83 @@ output: html_document
 set.seed(1) 
 x <- runif(20,1,20)
 
-sd_cv # <- Your work here 
+#double checking the objects
 
-sd_boot # <- Your work here
+str(x)
+length(x)
+
+# make sure the order of x is random before segmenting into k-fold cross validation
+x_random <- sample(x, size = 20)
+
+# double check that sample() correctly kept the values of x
+sum(x)
+sum(x_random)
+
+# create the folds for k-fold
+kfold_01 <- x_random[1:2]
+kfold_02 <- x_random[3:4]
+kfold_03 <- x_random[5:6]
+kfold_04 <- x_random[7:8]
+kfold_05 <- x_random[9:10]
+kfold_06 <- x_random[11:12]
+kfold_07 <- x_random[13:14]
+kfold_08 <- x_random[15:16]
+kfold_09 <- x_random[17:18]
+kfold_10 <- x_random[19:20]
+
+# double check that the folds add up to the same value as sum(x) 
+sum(kfold_01 + kfold_02 + kfold_03 + kfold_04 + kfold_05 + kfold_06 + kfold_07 + kfold_08 + kfold_09 + kfold_10)
+
+# k-fold pattern is calculating the mean of kmean_01 without kfold_01 ... kmean_n without kfold_n
+kmean_01 <- mean( c(kfold_02, kfold_03, kfold_04, kfold_05, kfold_06, kfold_07, kfold_08, kfold_09, kfold_10))
+kmean_02 <- mean( c(kfold_01, kfold_03, kfold_04, kfold_05, kfold_06, kfold_07, kfold_08, kfold_09, kfold_10))
+kmean_03 <- mean( c(kfold_01, kfold_02, kfold_04, kfold_05, kfold_06, kfold_07, kfold_08, kfold_09, kfold_10))
+kmean_04 <- mean( c(kfold_01, kfold_02, kfold_03, kfold_05, kfold_06, kfold_07, kfold_08, kfold_09, kfold_10))
+kmean_05 <- mean( c(kfold_01, kfold_02, kfold_03, kfold_04, kfold_06, kfold_07, kfold_08, kfold_09, kfold_10))
+kmean_06 <- mean( c(kfold_01, kfold_02, kfold_03, kfold_04, kfold_05, kfold_07, kfold_08, kfold_09, kfold_10))
+kmean_07 <- mean( c(kfold_01, kfold_02, kfold_03, kfold_04, kfold_05, kfold_06, kfold_08, kfold_09, kfold_10))
+kmean_08 <- mean( c(kfold_01, kfold_02, kfold_03, kfold_04, kfold_05, kfold_06, kfold_07, kfold_09, kfold_10))
+kmean_09 <- mean( c(kfold_01, kfold_02, kfold_03, kfold_04, kfold_05, kfold_06, kfold_07, kfold_08, kfold_10))
+kmean_10 <- mean( c(kfold_01, kfold_02, kfold_03, kfold_04, kfold_05, kfold_06, kfold_07, kfold_08, kfold_09))
+
+# the k-fold standard deviation of sample means
+
+sd_cv <- sd( c(kmean_01, kmean_02, kmean_03, kmean_04, kmean_05, kmean_06, 
+               kmean_06, kmean_07, kmean_08, kmean_09, kmean_10))
+print(sd_cv)
+
+# create the bootstrap folds with original sample size
+
+
+bfold_01 <- sample(x, 20, replace = TRUE)
+bfold_02 <- sample(x, 20, replace = TRUE)
+bfold_03 <- sample(x, 20, replace = TRUE)
+bfold_04 <- sample(x, 20, replace = TRUE)
+bfold_05 <- sample(x, 20, replace = TRUE)
+bfold_06 <- sample(x, 20, replace = TRUE)
+bfold_07 <- sample(x, 20, replace = TRUE)
+bfold_08 <- sample(x, 20, replace = TRUE)
+bfold_09 <- sample(x, 20, replace = TRUE)
+bfold_10 <- sample(x, 20, replace = TRUE)
+
+# calculate the mean of each of the bootstrap folds
+
+bmean_01 <- mean(bfold_01)
+bmean_02 <- mean(bfold_02)
+bmean_03 <- mean(bfold_03)
+bmean_04 <- mean(bfold_04)
+bmean_05 <- mean(bfold_05)
+bmean_06 <- mean(bfold_06)
+bmean_07 <- mean(bfold_07)
+bmean_08 <- mean(bfold_08)
+bmean_09 <- mean(bfold_09)
+bmean_10 <- mean(bfold_10)
+
+# the bootstrap standard deviation of sample means
+
+sd_boot <- sd( c(bmean_01, bmean_02, bmean_03, bmean_04, bmean_05, bmean_06, 
+                 bmean_07, bmean_08, bmean_09, bmean_10))
+print(sd_boot)
 ```
 
 
