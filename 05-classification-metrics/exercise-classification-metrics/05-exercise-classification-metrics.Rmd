@@ -26,7 +26,34 @@ Write functions of `y` and `y_hat` to calculate the following classification met
 * Kappa
 
 ```{r "definitions"}
-true_pos <- 
+library(dplyr)
+
+# true positive rate = TP / TP + FN
+tpr <- function(x){
+      TP <- x %>% filter(y == "TRUE") %>% filter(y_hat == "TRUE") %>% count()
+      FN <- x %>% filter(y == "TRUE") %>% filter(y_hat == "FALSE") %>% count()
+      tpr_calc <- TP / (TP + FN)
+      return(tpr_calc)
+}
+
+
+######## test bench
+
+# TRUE POSITIVE
+flights_clean %>% filter(late == "TRUE") %>% filter(predict == "TRUE") %>% count()
+
+# FALSE NEGATIVE
+flights_clean %>% filter(late == "TRUE") %>% filter(predict == "FALSE") %>% count()
+
+TP2 <- flights_clean %>% filter(late == "TRUE") %>% filter(predict == "TRUE") %>% count()
+FN2 <- flights_clean %>% filter(late == "TRUE") %>% filter(predict == "FALSE") %>% count()
+
+trp2 <- TP / (TP + FN)
+print(trp2)
+flights_clean %>% filter(late == "TRUE") %>% count()
+
+flights_clean %>% filter(late == "TRUE") %>% filter(predict == "TRUE") %>% count()
+  count(predict == "TRUE")
 
 ```
 
@@ -52,10 +79,12 @@ flights$predict <- "FALSE"
 flights$predict[flights$pred >= .5] <- "TRUE" 
   
 flights_clean <- flights %>% select(late, predict)
-flights_clean %>% filter(late != predict)             
+names(flights_clean)[names(flights_clean) == "late"] <- "y"
+names(flights_clean)[names(flights_clean) == "predict"] <- "y_hat"  
 ```
 ```{r "evaluations"}
-
+# calculate the true positive rate
+tpr(flights_clean)
 
 ```
 
