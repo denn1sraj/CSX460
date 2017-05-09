@@ -25,8 +25,8 @@ Write functions of `y` and `y_hat` to calculate the following classification met
 * Accuracy
 * Kappa
 
-```{r "definitions", echo=FALSE}
-
+```{r "definitions"}
+true_pos <- 
 
 ```
 
@@ -37,7 +37,23 @@ Note that the `echo = FALSE` parameter was added to the code chunk to prevent pr
 
 Use the function(s) above to calculate the metrics for your late arrival model that
 you created last week. 
+```{r "model"}
+library(dplyr)
 
+flights <- tbl_df(read_csv("flights_clean.csv", col_names = TRUE))
+model <- glm(formula = late ~ dep_delay + month.x + air_time + distance + carrier, family = binomial(), data = flights)
+summary(model)
+preds <- predict(model, flights, type="response")
+qplot(preds, bins = 30)
+errs <- (preds - (flights$late == "TRUE"))
+errs %>% qplot()
+flights$pred <- predict(model, flights, type="response")
+flights$predict <- "FALSE"
+flights$predict[flights$pred >= .5] <- "TRUE" 
+  
+flights_clean <- flights %>% select(late, predict)
+flights_clean %>% filter(late != predict)             
+```
 ```{r "evaluations"}
 
 

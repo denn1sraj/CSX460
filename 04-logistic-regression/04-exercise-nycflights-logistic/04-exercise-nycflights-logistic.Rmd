@@ -19,6 +19,25 @@ library(caTools)
 # make sure flights_final.csv is in the current working directory, if not use Rstudio or setwd() 
 # set the working directory to read in the csv
 flights <- tbl_df(read_csv("flights_final.csv", col_names = TRUE))
+
+logistic <- function(x) {
+    1/(1+exp(-x))
+}
+
+inverse_log <- function(y) {
+    -log(1/y-1)
+}
+
+glimpse(flights)
+
+flights_clean <- flights %>% filter(!is.na(arr_delay))
+                               
+flights_clean$late <- "False"
+
+flights_clean$late[flights_clean$arr_delay >= 22] <- "True"
+flights_clean$late %>% qplot
+
+write.csv(flights_clean, file = "flights_clean.csv", append = FALSE, sep = ",", col.names = TRUE)
 ```
 
 ```{r Step 2: Data Cleaning}
@@ -26,8 +45,8 @@ flights <- tbl_df(read_csv("flights_final.csv", col_names = TRUE))
 # from the assignment -- predict delays >= 22 minutes
 
 # Filter the data to remove na's and limit the data to arrival delays greater than or equal to 22 minutes 
-flights$cat_delay <- "ontime"
-flights$cat_delay[flights$arr_delay >= 22] <- "late"
+flights$late <- "False"
+flights$late[flights$arr_delay >= 22] <- "True"
 flights$cat_delay <- factor(flights$cat_delay)
 
 #Double check the counts of each of the types of flights
@@ -91,6 +110,8 @@ plot(fit_test)
 **Hint:** For plotting curves see `?graphics::curve` or `?ggplot2::stat_function`
 
 ```{r "Logistic and Inverse Logistic" }
+
+
 
 ```
 
