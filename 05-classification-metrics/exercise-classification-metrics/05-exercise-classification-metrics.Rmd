@@ -1,13 +1,28 @@
 ---
-title: "Classification Mettrics"
-author: "Christopher Brown"
-date: "October 5, 2015"
+title: "Classification Metrics"
+author: "Dennis Raj"
+date: "May 9, 2017"
 output: html_document
 ---
 
 
 **KNIT YOUR DOCUMENT AS *HTML* AND SUBMIT IT AND THE `Rmd` file.** 
- 
+
+## Model
+```{r "model"}
+library(dplyr)
+library(readr)
+library(ggplot2)
+flights <- tbl_df(read_csv("flights_clean.csv", col_names = TRUE))
+model <- glm(formula = late ~ dep_delay + month.x + air_time + distance + carrier, family = binomial(), data = flights)
+flights$pred <- predict(model, flights, type="response")
+flights$predict <- "FALSE"
+flights$predict[flights$pred >= .5] <- "TRUE" 
+  
+flights_clean <- flights %>% select(late, predict)
+names(flights_clean)[names(flights_clean) == "late"] <- "y"
+names(flights_clean)[names(flights_clean) == "predict"] <- "y_hat"  
+```
 
 ## Classification Metrics Functions 
 
@@ -37,23 +52,114 @@ tpr <- function(x){
 }
 
 
-######## test bench
+# False Positive Rate = FP / FP + TN
+fpr <- function(x){
+      FP <- x %>% filter(y == "FALSE") %>% filter(y_hat == "TRUE") %>% count()
+      TN <- x %>% filter(y == "FALSE") %>% filter(y_hat == "FALSE") %>% count()
+      fpr_calc <- FP / (FP + TN)
+      return(fpr_calc)
+}
 
-# TRUE POSITIVE
-flights_clean %>% filter(late == "TRUE") %>% filter(predict == "TRUE") %>% count()
 
-# FALSE NEGATIVE
-flights_clean %>% filter(late == "TRUE") %>% filter(predict == "FALSE") %>% count()
+# True Negative rate = TN / TN + FP
+tnr <- function(x){
+      TN <- x %>% filter(y == "FALSE") %>% filter(y_hat == "FALSE") %>% count()
+      FP <- x %>% filter(y == "TRUE") %>% filter(y_hat == "TRUE") %>% count()
+      tnr_calc <- TN / (TN + FP)
+      return(tnr_calc)
+}
 
-TP2 <- flights_clean %>% filter(late == "TRUE") %>% filter(predict == "TRUE") %>% count()
-FN2 <- flights_clean %>% filter(late == "TRUE") %>% filter(predict == "FALSE") %>% count()
+# False Negative rate = FN / TN + FN
+fnr <- function(x){
+      FN <- x %>% filter(y == "TRUE") %>% filter(y_hat == "FALSE") %>% count()
+      TN <- x %>% filter(y == "FALSE") %>% filter(y_hat == "FALSE") %>% count()
+      fnr_calc <- FN / (TN + FN)
+}
 
-trp2 <- TP / (TP + FN)
-print(trp2)
-flights_clean %>% filter(late == "TRUE") %>% count()
 
-flights_clean %>% filter(late == "TRUE") %>% filter(predict == "TRUE") %>% count()
-  count(predict == "TRUE")
+# Sensitivity = True Positive Rate
+sensitivity <- function(x){
+      TP <- x %>% filter(y == "TRUE") %>% filter(y_hat == "TRUE") %>% count()
+      FN <- x %>% filter(y == "TRUE") %>% filter(y_hat == "FALSE") %>% count()
+      sensitivity_calc <- TP / (TP + FN)
+      return(sensitivity_calc)
+}
+
+# Specificity = True Negative Rate
+specificity <- function(x){
+      TN <- x %>% filter(y == "FALSE") %>% filter(y_hat == "FALSE") %>% count()
+      FP <- x %>% filter(y == "TRUE") %>% filter(y_hat == "TRUE") %>% count()
+      specificity_calc <- TN / (TN + FP)
+      return(specificity_calc)
+}
+
+# Recall = True Positive Rate = TP / TP + FN
+f.recall <- function(x){
+      TP <- x %>% filter(y == "TRUE") %>% filter(y_hat == "TRUE") %>% count()
+      FN <- x %>% filter(y == "TRUE") %>% filter(y_hat == "FALSE") %>% count()
+      recall_calc <- TP / (TP + FN)
+      return(recall_calc)
+}
+
+# Prescision = positive predictive value = TP / TP + FP
+prescision <- function(x){
+      TP <- x %>% filter(y == "TRUE") %>% filter(y_hat == "TRUE") %>% count()
+      FP <- x %>% filter(y == "TRUE") %>% filter(y_hat == "TRUE") %>% count()
+      prescision_calc <- TP / (TP + FP)
+      return(prescision_calc)
+  
+}
+
+# Prevalence =  observed true / observed true + observed false
+prevalence <- function(x){
+      OT <- x %>% filter(y == "TRUE") %>% count()
+      OF <- x %>% filter(y == "FALSE") %>% count()
+      prevalence_calc <- OT / (OT + OF)
+      return(prevalence_calc)
+}
+
+# Accuracy = TP + TN / TP + TN + FP + FN
+accuracy <- function(x){
+      TP <- x %>% filter(y == "TRUE") %>% filter(y_hat == "TRUE") %>% count()
+      TN <- x %>% filter(y == "FALSE") %>% filter(y_hat == "FALSE") %>% count()
+      FP <- x %>% filter(y == "FALSE") %>% filter(y_hat == "TRUE") %>% count()
+      FN <- x %>% filter(y == "TRUE") %>% filter(y_hat == "FALSE") %>% count()
+      accuracy_calc <- (TP + TN) / (TP + TN + FP + FN)
+      return(accuracy_calc)
+}
+test <- accuracy(flights_clean)
+# Kappa = (Proportion actual - Proportion expected) / 1 - Proportion expected
+
+f.kappa <- function(x){
+      #baselines to calculate rates
+      TP <- x %>% filter(y == "TRUE") %>% filter(y_hat == "TRUE") %>% count()
+      TN <- x %>% filter(y == "FALSE") %>% filter(y_hat == "FALSE") %>% count()
+      FP <- x %>% filter(y == "FALSE") %>% filter(y_hat == "TRUE") %>% count()
+      FN <- x %>% filter(y == "TRUE") %>% filter(y_hat == "FALSE") %>% count()
+      total_count <- (TP + TN + FP + FN)
+      
+      #calculating rates
+      TP_rate <- TP / total_count
+      TN_rate <- TN / total_count
+      
+      #calculating PR(a)
+      pr_a <- TP_rate + TN_rate
+      
+      #calculating PR(e)
+      pred_true <- x %>% filter(y_hat == "TRUE") %>% count()
+      pred_false <- x %>% filter(y_hat == "FALSE") %>% count()
+      pred_true_rate <- pred_true / total_count
+      pred_false_rate <- pred_false / total_count
+      actual_true <- x %>% filter(y == "TRUE") %>% count()
+      actual_false <- x %>% filter(y == "FALSE") %>% count()
+      actual_true_rate <- actual_true / total_count
+      actual_false_rate <- actual_false / total_count
+      
+      pr_e <- (pred_true_rate * actual_true_rate) + (pred_false_rate * actual_false_rate)
+      # final k calculation  
+      k <- (pr_a - pr_e) / (1 - pr_e)
+      return(k)
+}
 
 ```
 
@@ -64,27 +170,41 @@ Note that the `echo = FALSE` parameter was added to the code chunk to prevent pr
 
 Use the function(s) above to calculate the metrics for your late arrival model that
 you created last week. 
-```{r "model"}
-library(dplyr)
 
-flights <- tbl_df(read_csv("flights_clean.csv", col_names = TRUE))
-model <- glm(formula = late ~ dep_delay + month.x + air_time + distance + carrier, family = binomial(), data = flights)
-summary(model)
-preds <- predict(model, flights, type="response")
-qplot(preds, bins = 30)
-errs <- (preds - (flights$late == "TRUE"))
-errs %>% qplot()
-flights$pred <- predict(model, flights, type="response")
-flights$predict <- "FALSE"
-flights$predict[flights$pred >= .5] <- "TRUE" 
-  
-flights_clean <- flights %>% select(late, predict)
-names(flights_clean)[names(flights_clean) == "late"] <- "y"
-names(flights_clean)[names(flights_clean) == "predict"] <- "y_hat"  
-```
 ```{r "evaluations"}
-# calculate the true positive rate
+# True Positive Rate
 tpr(flights_clean)
+
+# False Positive Rate
+fpr(flights_clean)
+
+
+# True Negative Rate
+tnr(flights_clean)
+
+# False Negative Rate 
+fnr(flights_clean)
+
+# Sensitivity
+sensitivity(flights_clean)
+
+# Specificity
+specificity(flights_clean)
+
+# Recall
+f.recall(flights_clean)
+
+# Prescision
+prescision(flights_clean)
+
+# Prevalence
+prevalence(flights_clean)
+
+# Accuracy
+accuracy(flights_clean)
+
+# Kappa
+f.kappa(flights_clean)
 
 ```
 
