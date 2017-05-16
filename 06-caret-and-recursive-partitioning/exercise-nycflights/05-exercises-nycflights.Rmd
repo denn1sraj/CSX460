@@ -8,7 +8,8 @@ output: pdf_document
 ```{r init, warning=FALSE, echo=FALSE, message=FALSE}
 library(rpart)
 library(caret)
-# .. Additional libraries
+library(readr)
+library(dplyr)
 ```
 
 
@@ -23,7 +24,22 @@ Rebuild your logistic regression model from the previous week, this time using t
 Show all work.
 
 ```{r logistic model}
-# Your Work Here
+flights <- tbl_df(read_csv("flights_clean.csv", col_names = TRUE))
+flights$month.x <- as.factor(flights$month.x)
+flights$carrier <- as.factor(flights$carrier)
+flights$origin <- as.factor(flights$origin)
+flights$dest <- as.factor(flights$dest)
+glimpse(flights)
+
+flights_clean <- flights %>% select(month.x, dep_delay, carrier, origin, dest, distance, late)
+
+set.seed(1234)
+
+test <- train(Class ~ ., 
+              data = flights_clean, 
+              method = "glm",
+              verbose = TRUE)
+
 ```
 
 
