@@ -10,6 +10,8 @@ library(rpart)
 library(caret)
 library(readr)
 library(dplyr)
+library(pROC)
+library(partykit)
 ```
 
 
@@ -29,16 +31,34 @@ flights$month.x <- as.factor(flights$month.x)
 flights$carrier <- as.factor(flights$carrier)
 flights$origin <- as.factor(flights$origin)
 flights$dest <- as.factor(flights$dest)
-glimpse(flights)
+flights$late <- as.factor(flights$late)
 
-flights_clean <- flights %>% select(month.x, dep_delay, carrier, origin, dest, distance, late)
+
+flights_clean <- flights %>% select(late, month.x, dep_delay, carrier, origin, dest, distance, humid, wind_speed, temp)
+glimpse(flights_clean)
 
 set.seed(1234)
+inTraining <- createDataPartition(flights_clean$late, p = .75, list = FALSE)
+train <- flights_clean[inTraining,]
+test <- flights_clean[-inTraining,]
+tc <- trainControl(method = "cv", 10, savePredictions=T)
+fit1 <- train(late ~ month.x + dep_delay + carrier + origin + dest, data = train, 
+                        method = "glm",
+                        family = binomial,
+                        trControl = tc)
 
-test <- train(Class ~ ., 
-              data = flights_clean, 
-              method = "glm",
-              verbose = TRUE)
+summary(fit1)
+head(fit1$pred)
+tail(fit1$pred)
+fitpred <- ifelse(fit1$finalModel$fitted.values > 0.5, TRUE, FALSE)
+fitpred <- as.factor(fitpred)
+
+fit1_cm <- confusionMatrix(data=fitpred, reference = train$late)
+fit1_cm
+
+fit1_auc <- roc(train$late, fit1$finalModel$fitted.values)
+fit1_auc
+plot(fit1_auc)
 
 ```
 
@@ -59,7 +79,18 @@ Using the `caret` and `rpart` packages, create a **classification** model for fl
 Show and describe all work
 
 ```{r rpart model}
-# Your Work Here
+
+rpart1 <- rpart(late ~ ., data = flights_clean, method = "class",
+                control = rpart.control(minsplit=1, minbucket = 1, cp=0.001))
+
+               
+                
+
+
+rpart1a <- as.party(rpart1)
+
+plot(rpart1a)
+
 ```
 
 
