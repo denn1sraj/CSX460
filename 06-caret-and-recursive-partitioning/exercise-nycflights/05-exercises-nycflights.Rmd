@@ -11,7 +11,7 @@ library(caret)
 library(readr)
 library(dplyr)
 library(pROC)
-library(partykit)
+library(rpart.plot)
 ```
 
 
@@ -80,19 +80,22 @@ Show and describe all work
 
 ```{r rpart model}
 
-fit2 <- rpart(late ~ month.x + dep_delay + carrier + origin + dest, 
-              method = "class", 
-              data = train)
-
-fit2_party <- as.party(fit2)
-
-plot(fit2_party)              
-
-  
+set.seed(2345)
+inTraining2 <- createDataPartition(flights_clean$late, p = .75, list = FALSE)
+train2 <- flights_clean[inTraining,]
+test2 <- flights_clean[-inTraining,]
 
 
+fit2 <- rpart(late ~month.x + dep_delay + carrier + origin + dest,
+                data = train2)
 
+fit2
+rpart.plot(fit2)
+             
+fitpred2 <- predict(fit2, newdata=test2, type="class")
 
+fit2_cm <- confusionMatrix(data=fitpred2, reference = test2$late)
+fit1_cm
 
 ```
 
