@@ -15,6 +15,7 @@ library(dplyr)
 library(plyr)
 library(pROC)
 library(rpart.plot)
+library(partykit)
 # this library sets multiple core processing
 library(doMC)
 # set the number of cores based on the number of hyperthreaded cores (aka, if you have a dual core i5)
@@ -107,14 +108,7 @@ Show and describe all work
 # Articulation of the problem
 # We are looking to find a classification model that can accurately predict whether flights are late arriving or ontime. 
 
-# The naive model would be extending the rate of the observed values in the training data to the test data. Kappa as a metric of unbiased calculation of performance for the model takes this into account.
 
-#native model
-native_counts <- flights %>% select(late, arr_delay) %>% group_by(late) %>% 
-                            dplyr::summarize(count = n())
-native_counts
-native_late_rate <- native_counts[late == TRUE] / native_counts[late == FALSE]
-                            
 set.seed(2345)
 flights_clean2 <- flights_clean
 flights_clean2$cat_late <- "ontime"
@@ -127,20 +121,34 @@ tc2 <- trainControl(method = "repeatedcv",
                     classProbs = TRUE, 
                     summaryFunction = twoClassSummary)
 
+# The naive model would be extending the rate of the observed values in the training data to the test data. Kappa as a metric of unbiased calculation of performance for the model takes this into account.
 
+#native model
+native_counts <- train2 %>% select(late, month.x) %>% group_by(late) %>% 
+                            dplyr::summarize(count = n())
+native_counts
+native_late_rate <- 48720 / 196791
 
+count_test2 <- test2 %>% dplyr::summarize(count = n())
+
+naive_pred <- count_test2 * native_late_rate
+
+# actual model
 fit2 <- train(cat_late ~ month.x + dep_delay + carrier + origin + dest,
               data = train2,
               method = "rpart",
               trControl = tc2)
 
 fit2
-rpart.plot(fit2)
+fit2_part <- as.party(fit2$finalModel)
+plot(fit2_part)
              
 fitpred2 <- predict(fit2, newdata=test2, type="class")
 
 fit2_cm <- confusionMatrix(data=fitpred2, reference = test2$late)
 fit2_cm
+
+# The model is pretty good -- it uses a good amount of the features to determine the outfrom for arrival delay. Even though ituses more features than just the rpart model below, it still is highly interpretable but retails both high accuracy and 0.9219 and a decent Kappa over just the expected values of 0.7363. The model also only predicts 13263 late flights while missing 4684 actually late flights, while the naive model would over predict 20259 late flights. 
 
 ```
 
