@@ -80,16 +80,19 @@ Show and describe all work
 
 ```{r rpart model}
 
-rpart1 <- rpart(late ~ ., data = flights_clean, method = "class",
-                control = rpart.control(minsplit=1, minbucket = 1, cp=0.001))
+fit2 <- rpart(late ~ month.x + dep_delay + carrier + origin + dest, 
+              method = "class", 
+              data = train)
 
-               
-                
+fit2_party <- as.party(fit2)
+
+plot(fit2_party)              
+
+  
 
 
-rpart1a <- as.party(rpart1)
 
-plot(rpart1a)
+
 
 ```
 
