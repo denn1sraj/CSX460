@@ -1,0 +1,197 @@
+---
+title: "Caret / Recursive Partitioning"
+author: "Dennis Raj"
+date: "May 16, 2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r init, warning=FALSE, echo=FALSE, message=FALSE}
+
+#load various libraries neccesary for the analysis
+library(rpart)
+library(caret)
+library(readr)
+library(dplyr)
+library(plyr)
+library(pROC)
+library(rpart.plot)
+library(partykit)
+# this library sets multiple core processing
+library(doMC)
+# set the number of cores based on the number of hyperthreaded cores (aka, if you have a dual core i5)
+# you can set the number to 1-4, since there are 4 virtual cores. Recommended to set n-1 of max cores so you still have some processing power for other computer functions
+registerDoMC(cores=7)
+```
+
+
+## Exercise 1: caret/logistic regression (5 points)
+
+Rebuild your logistic regression model from the previous week, this time using the `caret` package. 
+
+- Calculate the training or apparent performance of the model. 
+- Calculate an unbiased measure of performance 
+- Create a ROC Curve for your model
+
+Show all work.
+
+```{r logistic model}
+# create the data set used for the analysis and set various features to factors
+flights <- tbl_df(read_csv("flights_clean.csv", col_names = TRUE))
+flights$month.x <- as.factor(flights$month.x)
+flights$carrier <- as.factor(flights$carrier)
+flights$origin <- as.factor(flights$origin)
+flights$dest <- as.factor(flights$dest)
+flights$late <- as.factor(flights$late)
+
+
+#narrow down the data set to features of interest
+flights_clean <- flights %>% select(late, month.x, dep_delay, carrier, origin, dest, distance, humid, wind_speed, temp)
+glimpse(flights_clean)
+
+#set the seed for reproducability with caret's inTraining
+set.seed(1234)
+
+# set the level for the training and the test data sets on a 75 / 25 split
+inTraining <- createDataPartition(flights_clean$late, p = .75, list = FALSE)
+train <- flights_clean[inTraining,]
+test <- flights_clean[-inTraining,]
+# setup the cross validation for the fite
+tc <- trainControl(method = "cv", 10, savePredictions=T)
+# create the fit
+fit1 <- train(late ~ month.x + dep_delay + carrier + origin + dest, data = train, 
+                        method = "glm",
+                        family = binomial,
+                        trControl = tc)
+#double check that the predictions were made with different folds
+summary(fit1)
+head(fit1$pred)
+tail(fit1$pred)
+
+# use the final fitted values for the prediction and set a threshold level for 'late'
+fitpred <- ifelse(fit1$finalModel$fitted.values > 0.5, TRUE, FALSE)
+fitpred <- as.factor(fitpred)
+
+# setup a confusion matrix
+fit1_cm <- confusionMatrix(data=fitpred, reference = train$late)
+# review the confusion matrix
+fit1_cm
+
+# the kappa of 0.7393 is an unbiased (or less biased) measure of accuracy
+
+# calculate and plot an ROC curve
+fit1_auc <- roc(train$late, fit1$finalModel$fitted.values)
+# the area under the curve of 0.9272 is another unbiased measure of accuracy
+fit1_auc
+
+plot(fit1_auc)
+
+```
+
+
+## Exercise 2: caret/rpart (5 points)
+
+Using the `caret` and `rpart` packages, create a **classification** model for flight delays using your NYC FLight data. Your solution should include:
+
+- The use of `caret` and `rpart` to train a model.
+- An articulation of the the problem your are 
+- An naive model
+- An unbiased calculation of the performance metric
+- A plot of your model -- (the actual tree; there are several ways to do this)
+- A discussion of your model 
+
+
+
+Show and describe all work
+
+```{r rpart model}
+
+# Articulation of the problem
+# We are looking to find a classification model that can accurately predict whether flights are late arriving or ontime. 
+
+set.seed(2345)
+flights_clean2 <- flights_clean
+flights_clean2$cat_late <- "ontime"
+flights_clean2$cat_late[flights_clean2$late == TRUE] <- "delayed"
+inTraining2 <- createDataPartition(flights_clean2$late, p = .75, list = FALSE)
+train2 <- flights_clean2[inTraining2,]
+test2 <- flights_clean2[-inTraining2,]
+tc2 <- trainControl(method = "repeatedcv", 
+                    number = 10,
+                    classProbs = TRUE, 
+                    summaryFunction = twoClassSummary)
+
+# The naive model would be extending the rate of the observed values in the training data to the test data. Kappa as a metric of unbiased calculation of performance for the model takes this into account.
+
+#native model
+native_counts <- train2 %>% select(late, month.x) %>% group_by(late) %>% 
+                            dplyr::summarize(count = n())
+native_counts
+native_late_rate <- 48720 / 196791
+
+count_test2 <- test2 %>% dplyr::summarize(count = n())
+
+naive_pred <- count_test2 * native_late_rate
+
+naive_pred
+
+# actual model
+fit2 <- train(cat_late ~ month.x + dep_delay + carrier + origin + dest,
+              data = train2,
+              method = "rpart",
+              trControl = tc2)
+
+fit2
+fit2_part <- as.party(fit2$finalModel)
+plot(fit2_part)
+             
+fitpred2 <- predict(fit2, newdata=test2, type="raw")
+
+fit2_cm <- confusionMatrix(data=fitpred2, reference = test2$cat_late)
+fit2_cm
+
+
+# The model is pretty good -- it uses a good amount of the features to determine the outfrom for arrival delay. Even though ituses more features than just the rpart model below, it still is highly interpretable but retails both high accuracy and 0.9225 and a decent Kappa over just the expected values of 0.7363. The model also only predicts 13263 late flights while missing 4684 actually late flights, while the naive model would over predict 20259 late flights. 
+
+
+```
+
+```{r rpart model2 - non-caret}
+
+#This pat was created because I couldn't get the caret resampling to work with the rpart method to create fit2. 
+
+fit3 <- rpart(late ~ month.x + dep_delay + carrier + origin + dest,
+                data = train2)
+
+fit3
+rpart.plot(fit3)
+# The model is pretty straightforward -- it uses just the departure delay to determine what the outcome is for the arrival delay. This means that this is highly interpretable (anyone with a watch and the single rule can fairly accurately predict whether a flight will be delayed in arriving). However, this model suffers from a very low kappa, which means it's not much more accurate than predicting the number of delayed arrivals based on history and not other features.               
+fitpred3 <- predict(fit3, newdata=test2, type="class")
+
+fit3_cm <- confusionMatrix(data=fitpred3, reference = test2$late)
+# the Kappa of 0.7363 is an unbiased metric (based only on rpart), which is pretty good. 
+fit3_cm
+```
+
+
+### Questions:
+
+- Discuss the difference between the models and why you would use one model over the other?
+
+It depends on what my audience was and who was going to be using the model. Since rules-based / decision tree models are both highly interpretable and easy to use to predict new data, if this was a model that was going to be used by non-programmer/analytics people I would prefer to use this model. However, I think there are better ways to tweak the logsitic regression model to get a prefered business outcome by changing the specificy and sensitivy (aka moving along the ROC curve) to limit Type I and Type II errors, depending on their cost. 
+
+
+- How might you produce an ROC type curve for the *rpart* model? 
+```{r auc for rpart}
+# calculate and plot an ROC curve for the rpart model
+
+pred_test <- predict(fit3, newdata=test2, type="prob")[,2]
+
+str(pred_test)
+
+fit3_auc <- roc(test2$late, pred_test)
+fit3_auc
+
+plot(fit3_auc)
+```
