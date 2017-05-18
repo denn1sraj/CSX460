@@ -2,7 +2,9 @@
 title: "Caret / Recursive Partitioning"
 author: "Dennis Raj"
 date: "May 16, 2017"
-output: pdf_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r init, warning=FALSE, echo=FALSE, message=FALSE}
@@ -108,7 +110,6 @@ Show and describe all work
 # Articulation of the problem
 # We are looking to find a classification model that can accurately predict whether flights are late arriving or ontime. 
 
-
 set.seed(2345)
 flights_clean2 <- flights_clean
 flights_clean2$cat_late <- "ontime"
@@ -133,6 +134,8 @@ count_test2 <- test2 %>% dplyr::summarize(count = n())
 
 naive_pred <- count_test2 * native_late_rate
 
+naive_pred
+
 # actual model
 fit2 <- train(cat_late ~ month.x + dep_delay + carrier + origin + dest,
               data = train2,
@@ -143,12 +146,14 @@ fit2
 fit2_part <- as.party(fit2$finalModel)
 plot(fit2_part)
              
-fitpred2 <- predict(fit2, newdata=test2, type="class")
+fitpred2 <- predict(fit2, newdata=test2, type="raw")
 
-fit2_cm <- confusionMatrix(data=fitpred2, reference = test2$late)
+fit2_cm <- confusionMatrix(data=fitpred2, reference = test2$cat_late)
 fit2_cm
 
-# The model is pretty good -- it uses a good amount of the features to determine the outfrom for arrival delay. Even though ituses more features than just the rpart model below, it still is highly interpretable but retails both high accuracy and 0.9219 and a decent Kappa over just the expected values of 0.7363. The model also only predicts 13263 late flights while missing 4684 actually late flights, while the naive model would over predict 20259 late flights. 
+
+# The model is pretty good -- it uses a good amount of the features to determine the outfrom for arrival delay. Even though ituses more features than just the rpart model below, it still is highly interpretable but retails both high accuracy and 0.9225 and a decent Kappa over just the expected values of 0.7363. The model also only predicts 13263 late flights while missing 4684 actually late flights, while the naive model would over predict 20259 late flights. 
+
 
 ```
 
