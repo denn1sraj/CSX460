@@ -1,6 +1,6 @@
 ---
 title: "Improving Model Perfromance / Tuning Parameters"
-author: "Your Name"
+author: "Dennis Raj"
 date: "`r Sys.Date()`"
 output: html_document
 ---
@@ -37,12 +37,108 @@ Save the caret objects with the names provided.
 
 # Your work here.
 
-fit.glm <- ..
-fit.knn <- ..
-fit.rpart <- ..
+# Setup Libraries
+library(caret)
+library(readr)
+library(dplyr)
+library(doMC)
+
+# setup multiple cores
+registerDoMC(cores=8)
+
+# Import the flights data from previous excercises
+flights <- tbl_df(read_csv("flights_clean.csv", col_names = TRUE))
+
+# update the cutoff for arr_delay classified as late from >= 22 minutes in previous exercises to >= 15 minutes 
+flights$late <- FALSE
+flights$late[flights$arr_delay >= 15] <- TRUE
+
+# setup factors for some of the variables of interest
+flights$month.x <- as.factor(flights$month.x)
+flights$carrier <- as.factor(flights$carrier)
+flights$origin <- as.factor(flights$origin)
+flights$dest <- as.factor(flights$dest)
+flights$late <- as.factor(flights$late)
+
+# select a smaller set of the data for the models (old CPU limitation)
+flights_clean <- flights %>% select(late, month.x, dep_delay, carrier, origin, dest, distance)
+
+# set seed for randomization
+set.seed(1234)
+
+# set the level for the training and the test data sets on a 75 / 25 split
+inTraining <- createDataPartition(flights_clean$late, p = .75, list = FALSE)
+train_set <- flights_clean[inTraining,]
+test_set <- flights_clean[-inTraining,]
+train_set <- train_set[1:1000,]
+
+# set the train control parameters for Caret
+tc <- trainControl(method = "cv", number = 10, repeats = 3)
+
+# train the glm model on the train data set
+fit.glm <- train(late ~ ., 
+                 data = train_set, 
+                 metric = "Kappa", 
+                 trControl = tc, 
+                 na.action = na.pass, 
+                 method = "glm", 
+                 family = binomial)
+
+# use the glm model to predict the values of the training data
+fit.glm.train_pred <- predict(fit.glm, train_set, type = "raw", na.action = na.pass)
+
+# create a confusion matrix of the predicted late values versus the actual late values
+cm.fit.glm <- confusionMatrix(data = fit.glm.train_pred, reference = train_set$late)
+
+# review the model performance
+print(cm.fit.glm)
+
+
+# train a knn model on the train data set
+fit.knn <- train( late ~ ., 
+                  data = train_set, 
+                  metric = "Kappa", 
+                  trControl = tc, 
+                  na.action = na.pass, 
+                  method = "knn") 
+
+# use the knn model to predict the values of the training set
+fit.knn.train_pred <- predict(fit.knn, train_set, type = "raw", na.action = na.pass)
+
+# create a confusion matrix of the predicted late values versus the actual late values
+cm.fit.knn <- confusionMatrix(data = fit.knn.train_pred, reference = train_set$late)
+
+# review the model performance
+print(cm.fit.knn)
+
+
+# train the rpart model on the train data set
+fit.rpart <- train( late ~ .,
+                    data = train_set, 
+                    metric = "Kappa", 
+                    trControl = tc, 
+                    na.action = na.pass, 
+                    method = "rpart")
+
+# use the rpart model to predict the values of the training set
+fit.rpart.train_pred <- predict(fit.rpart, train_set, type = "raw", na.action = na.pass)
+
+# create a confusion matrix of the predicted late values versus the actual late values
+cm.fit.rpart <- confusionMatrix(data = fit.rpart.train_pred, reference = train_set$late)
+
+# review the model performance
+print(cm.fit.rpart)
+
+
+
 fit.rf <- ..
-fit.myown1 <- ..
-fit.myown1 <- ..
+fit.c50 <- ..
+fit.nb <- ..
+fit.OneR <- ..
+fit.adaBoost <- 
+
+
+
 ```
 
 Compare the  models?
@@ -50,4 +146,4 @@ Compare the  models?
 Which is best?  Why?
 
 ```
-```
+
