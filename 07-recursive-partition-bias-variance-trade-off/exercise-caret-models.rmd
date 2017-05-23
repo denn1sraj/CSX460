@@ -70,6 +70,7 @@ inTraining <- createDataPartition(flights_clean$late, p = .75, list = FALSE)
 train_set <- flights_clean[inTraining,]
 test_set <- flights_clean[-inTraining,]
 train_set <- train_set[1:1000,]
+test_set <- test_set[1:1000,]
 
 # set the train control parameters for Caret
 tc <- trainControl(method = "cv", number = 10, repeats = 3)
@@ -180,6 +181,7 @@ cm.fit.rf <- confusionMatrix(data = fit.rf.train_pred, reference = train_set$lat
 # review the model performance
 print(cm.fit.rf)
 
+
 ### Decision Tree C5.0 Algorithm ###
 
 #train a C5.0 Decision tree model on the train data set
@@ -215,10 +217,11 @@ fit.nb <- train( late ~ .,
 fit.nb.train_pred <- predict(fit.nb, train_set, type ="raw", na.action = na.pass)
 
 # create a confusion matrix of the predicted late values versus the actual late values
-cm.fit.nb <- confusionMatrix(data = fit.C50.train_pred, reference = train_set$late)
+cm.fit.nb <- confusionMatrix(data = fit.nb.train_pred, reference = train_set$late)
 
 # review the model performance
 print(cm.fit.nb)
+
 
 ### AdaBoost Classification Trees ###
 
@@ -241,6 +244,78 @@ print(cm.fit.adaBoost)
 
 
 ### Comparison of the models on the test data ### 
+
+# use the OneR model to predict the values of the test data
+fit.OneR.test_pred <- predict(fit.OneR, test_set, type = "raw", na.action = na.pass)
+
+# create a confusion matrix of the predicted late values versus the actual late values
+cm.fit.OneR.new <- confusionMatrix(data = fit.OneR.test_pred, reference = test_set$late)
+
+# review the model performance on new data
+print(cm.fit.OneR.new)
+
+# use the glm model to predict the values of the training data
+fit.glm.test_pred <- predict(fit.glm, test_set, type = "raw", na.action = na.pass)
+
+# create a confusion matrix of the predicted late values versus the actual late values
+cm.fit.glm.new <- confusionMatrix(data = fit.glm.test_pred, reference = test_set$late)
+
+# review the model performance
+print(cm.fit.glm.new)
+
+# use the knn model to predict the values of the training set
+fit.knn.test_pred <- predict(fit.knn, test_set, type = "raw", na.action = na.pass)
+
+# create a confusion matrix of the predicted late values versus the actual late values
+cm.fit.knn.new <- confusionMatrix(data = fit.knn.test_pred, reference = test_set$late)
+
+# review the model performance
+print(cm.fit.knn.new)
+
+# use the rpart model to predict the values of the training set
+fit.rpart.test_pred <- predict(fit.rpart, test_set, type = "raw", na.action = na.pass)
+
+# create a confusion matrix of the predicted late values versus the actual late values
+cm.fit.rpart.new <- confusionMatrix(data = fit.rpart.test_pred, reference = test_set$late)
+
+# review the model performance
+print(cm.fit.rpart.new)
+
+# use the rf model to predict the values of the training set
+fit.rf.test_pred <- predict(fit.rf, test_set, type = "raw", na.action = na.pass) 
+
+# create a confustion matrix of the predicted late values versus the actual late values
+cm.fit.rf.new <- confusionMatrix(data = fit.rf.test_pred, reference = test_set$late)
+
+# review the model performance
+print(cm.fit.rf.new)
+
+# use the C5.0 model to predict the values of the training set
+fit.C50.test_pred <- predict(fit.C50, test_set, type = "raw", na.action = na.pass)
+
+# create a confustion matrix of the predicted late values versus the actual late values
+cm.fit.C50.new <- confusionMatrix(data = fit.C50.test_pred, reference = test_set$late)
+
+# review the model performance
+print(cm.fit.C50.new)
+
+# use the Naive Bayes model to predict the values of the training set
+fit.nb.test_pred <- predict(fit.nb, test_set, type ="raw", na.action = na.pass)
+
+# create a confusion matrix of the predicted late values versus the actual late values
+cm.fit.nb.new <- confusionMatrix(data = fit.nb.test_pred, reference = test_set$late)
+
+# review the model performance
+print(cm.fit.nb.new)
+
+# use the AdaBoost model to predict the values on the training set
+fit.adaBoost.test_pred <- predict(fit.adaBoost, test_set, type = "raw", na.action = na.pass) 
+
+#create a confusion matrix of the predicted late values versus the actual late values 
+cm.fit.adaBoost.new <- confusionMatrix(data = fit.adaBoost.test_pred, reference = test_set$late)
+
+# review the model performance
+print(cm.fit.adaBoost.new)
 
 ```
 
