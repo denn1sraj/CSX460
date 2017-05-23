@@ -143,9 +143,7 @@ $(document).ready(function () {
 <li>Two methods of your choice from the Caret Model List (you will need to install any dependencies)</li>
 </ul>
 <p>Save the caret objects with the names provided.</p>
-<pre class="r"><code># Your work here.
-
-# Setup Libraries
+<pre class="r"><code># Setup Libraries
 library(caret)</code></pre>
 <pre><code>## Loading required package: lattice</code></pre>
 <pre><code>## Loading required package: ggplot2</code></pre>
@@ -164,7 +162,10 @@ library(dplyr)</code></pre>
 <pre><code>## The following objects are masked from 'package:base':
 ## 
 ##     intersect, setdiff, setequal, union</code></pre>
-<pre class="r"><code># Import the flights data from previous excercises
+<pre class="r"><code># increase the JVM heap size
+options(java.parameters = &quot;-Xmx1024m&quot;)
+
+# Import the flights data from previous excercises
 flights &lt;- tbl_df(read_csv(&quot;flights_clean.csv&quot;, col_names = TRUE))</code></pre>
 <pre><code>## Parsed with column specification:
 ## cols(
@@ -204,7 +205,7 @@ flights$dest &lt;- as.factor(flights$dest)
 flights$late &lt;- as.factor(flights$late)
 
 # select a smaller set of the data for the models (old CPU limitation)
-flights_clean &lt;- flights %&gt;% select(late, month.x, dep_delay, carrier, origin, dest, distance)
+flights_clean &lt;- flights %&gt;% select(late, month.x, dep_delay, carrier, origin, dest)
 
 # set seed for randomization
 set.seed(1234)
@@ -213,11 +214,14 @@ set.seed(1234)
 inTraining &lt;- createDataPartition(flights_clean$late, p = .75, list = FALSE)
 train_set &lt;- flights_clean[inTraining,]
 test_set &lt;- flights_clean[-inTraining,]
-train_set &lt;- train_set[1:1000,]
-test_set &lt;- test_set[1:1000,]
+# test bench version used for initial code setup and K-nearest neighbors (I kept getting a memory leak / timeout)
+limited_train_set &lt;- train_set[1:5000,]
+# test bench version used for initial code setup
+# test_set &lt;- test_set[1:500,]
+
 
 # set the train control parameters for Caret
-tc &lt;- trainControl(method = &quot;cv&quot;, number = 10, repeats = 3)
+tc &lt;- trainControl(method = &quot;repeatedcv&quot;, number = 3)
 
 
 ### OneR Rule Learner ###
@@ -241,26 +245,26 @@ print(cm.fit.OneR)</code></pre>
 <pre><code>## Confusion Matrix and Statistics
 ## 
 ##           Reference
-## Prediction FALSE TRUE
-##      FALSE   688  131
-##      TRUE     28  153
+## Prediction  FALSE   TRUE
+##      FALSE 180272  20482
+##      TRUE    5163  39593
 ##                                           
-##                Accuracy : 0.841           
-##                  95% CI : (0.8168, 0.8631)
-##     No Information Rate : 0.716           
+##                Accuracy : 0.8955          
+##                  95% CI : (0.8943, 0.8968)
+##     No Information Rate : 0.7553          
 ##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
 ##                                           
-##                   Kappa : 0.561           
-##  Mcnemar's Test P-Value : 6.009e-16       
+##                   Kappa : 0.6908          
+##  Mcnemar's Test P-Value : &lt; 2.2e-16       
 ##                                           
-##             Sensitivity : 0.9609          
-##             Specificity : 0.5387          
-##          Pos Pred Value : 0.8400          
-##          Neg Pred Value : 0.8453          
-##              Prevalence : 0.7160          
-##          Detection Rate : 0.6880          
-##    Detection Prevalence : 0.8190          
-##       Balanced Accuracy : 0.7498          
+##             Sensitivity : 0.9722          
+##             Specificity : 0.6591          
+##          Pos Pred Value : 0.8980          
+##          Neg Pred Value : 0.8846          
+##              Prevalence : 0.7553          
+##          Detection Rate : 0.7343          
+##    Detection Prevalence : 0.8177          
+##       Balanced Accuracy : 0.8156          
 ##                                           
 ##        'Positive' Class : FALSE           
 ## </code></pre>
@@ -269,7 +273,7 @@ library(doMC)</code></pre>
 <pre><code>## Loading required package: foreach</code></pre>
 <pre><code>## Loading required package: iterators</code></pre>
 <pre><code>## Loading required package: parallel</code></pre>
-<pre class="r"><code>registerDoMC(cores=7)
+<pre class="r"><code>registerDoMC(cores=6)
 
 
 ### Logistic Regression ###
@@ -282,13 +286,11 @@ fit.glm &lt;- train(late ~ .,
                  na.action = na.pass, 
                  method = &quot;glm&quot;, 
                  family = binomial)</code></pre>
-<pre><code>## Warning: glm.fit: algorithm did not converge</code></pre>
 <pre><code>## Warning: glm.fit: fitted probabilities numerically 0 or 1 occurred</code></pre>
 <pre class="r"><code># use the glm model to predict the values of the training data
-fit.glm.train_pred &lt;- predict(fit.glm, train_set, type = &quot;raw&quot;, na.action = na.pass)</code></pre>
-<pre><code>## Warning in predict.lm(object, newdata, se.fit, scale = 1, type =
-## ifelse(type == : prediction from a rank-deficient fit may be misleading</code></pre>
-<pre class="r"><code># create a confusion matrix of the predicted late values versus the actual late values
+fit.glm.train_pred &lt;- predict(fit.glm, train_set, type = &quot;raw&quot;, na.action = na.pass)
+
+# create a confusion matrix of the predicted late values versus the actual late values
 cm.fit.glm &lt;- confusionMatrix(data = fit.glm.train_pred, reference = train_set$late)
 
 # review the model performance
@@ -296,44 +298,54 @@ print(cm.fit.glm)</code></pre>
 <pre><code>## Confusion Matrix and Statistics
 ## 
 ##           Reference
-## Prediction FALSE TRUE
-##      FALSE   630   85
-##      TRUE     86  199
-##                                           
-##                Accuracy : 0.829           
-##                  95% CI : (0.8042, 0.8518)
-##     No Information Rate : 0.716           
-##     P-Value [Acc &gt; NIR] : &lt;2e-16          
-##                                           
-##                   Kappa : 0.58            
-##  Mcnemar's Test P-Value : 1               
-##                                           
-##             Sensitivity : 0.8799          
-##             Specificity : 0.7007          
-##          Pos Pred Value : 0.8811          
-##          Neg Pred Value : 0.6982          
-##              Prevalence : 0.7160          
-##          Detection Rate : 0.6300          
-##    Detection Prevalence : 0.7150          
-##       Balanced Accuracy : 0.7903          
-##                                           
-##        'Positive' Class : FALSE           
+## Prediction  FALSE   TRUE
+##      FALSE 180000  19790
+##      TRUE    5435  40285
+##                                          
+##                Accuracy : 0.8973         
+##                  95% CI : (0.896, 0.8985)
+##     No Information Rate : 0.7553         
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16      
+##                                          
+##                   Kappa : 0.6976         
+##  Mcnemar's Test P-Value : &lt; 2.2e-16      
+##                                          
+##             Sensitivity : 0.9707         
+##             Specificity : 0.6706         
+##          Pos Pred Value : 0.9009         
+##          Neg Pred Value : 0.8811         
+##              Prevalence : 0.7553         
+##          Detection Rate : 0.7332         
+##    Detection Prevalence : 0.8138         
+##       Balanced Accuracy : 0.8206         
+##                                          
+##        'Positive' Class : FALSE          
 ## </code></pre>
 <pre class="r"><code>### K-Nearest Neighbors ###
 
 # train a knn model on the train data set
+
 fit.knn &lt;- train( late ~ ., 
-                  data = train_set, 
+                  data = limited_train_set,   # limited b/c of computation constraints
                   metric = &quot;Kappa&quot;, 
                   trControl = tc, 
-                  na.action = na.pass, 
-                  method = &quot;knn&quot;) 
-
-# use the knn model to predict the values of the training set
-fit.knn.train_pred &lt;- predict(fit.knn, train_set, type = &quot;raw&quot;, na.action = na.pass)
+                  na.action = na.pass)</code></pre>
+<pre><code>## Loading required package: randomForest</code></pre>
+<pre><code>## randomForest 4.6-12</code></pre>
+<pre><code>## Type rfNews() to see new features/changes/bug fixes.</code></pre>
+<pre><code>## 
+## Attaching package: 'randomForest'</code></pre>
+<pre><code>## The following object is masked from 'package:dplyr':
+## 
+##     combine</code></pre>
+<pre><code>## The following object is masked from 'package:ggplot2':
+## 
+##     margin</code></pre>
+<pre class="r"><code># use the knn model to predict the values of the training set
+fit.knn.train_pred &lt;- predict(fit.knn, limited_train_set, type = &quot;raw&quot;, na.action = na.pass)
 
 # create a confusion matrix of the predicted late values versus the actual late values
-cm.fit.knn &lt;- confusionMatrix(data = fit.knn.train_pred, reference = train_set$late)
+cm.fit.knn &lt;- confusionMatrix(data = fit.knn.train_pred, reference = limited_train_set$late)
 
 # review the model performance
 print(cm.fit.knn)</code></pre>
@@ -341,27 +353,27 @@ print(cm.fit.knn)</code></pre>
 ## 
 ##           Reference
 ## Prediction FALSE TRUE
-##      FALSE   696  107
-##      TRUE     20  177
-##                                          
-##                Accuracy : 0.873          
-##                  95% CI : (0.8508, 0.893)
-##     No Information Rate : 0.716          
-##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16      
-##                                          
-##                   Kappa : 0.6559         
-##  Mcnemar's Test P-Value : 2.325e-14      
-##                                          
-##             Sensitivity : 0.9721         
-##             Specificity : 0.6232         
-##          Pos Pred Value : 0.8667         
-##          Neg Pred Value : 0.8985         
-##              Prevalence : 0.7160         
-##          Detection Rate : 0.6960         
-##    Detection Prevalence : 0.8030         
-##       Balanced Accuracy : 0.7977         
-##                                          
-##        'Positive' Class : FALSE          
+##      FALSE  3930  211
+##      TRUE     29  830
+##                                           
+##                Accuracy : 0.952           
+##                  95% CI : (0.9457, 0.9578)
+##     No Information Rate : 0.7918          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.8444          
+##  Mcnemar's Test P-Value : &lt; 2.2e-16       
+##                                           
+##             Sensitivity : 0.9927          
+##             Specificity : 0.7973          
+##          Pos Pred Value : 0.9490          
+##          Neg Pred Value : 0.9662          
+##              Prevalence : 0.7918          
+##          Detection Rate : 0.7860          
+##    Detection Prevalence : 0.8282          
+##       Balanced Accuracy : 0.8950          
+##                                           
+##        'Positive' Class : FALSE           
 ## </code></pre>
 <pre class="r"><code>### Rpart Regression Trees ###
 
@@ -384,26 +396,26 @@ print(cm.fit.rpart)</code></pre>
 <pre><code>## Confusion Matrix and Statistics
 ## 
 ##           Reference
-## Prediction FALSE TRUE
-##      FALSE   700  118
-##      TRUE     16  166
+## Prediction  FALSE   TRUE
+##      FALSE 180272  20482
+##      TRUE    5163  39593
 ##                                           
-##                Accuracy : 0.866           
-##                  95% CI : (0.8433, 0.8865)
-##     No Information Rate : 0.716           
+##                Accuracy : 0.8955          
+##                  95% CI : (0.8943, 0.8968)
+##     No Information Rate : 0.7553          
 ##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
 ##                                           
-##                   Kappa : 0.6305          
+##                   Kappa : 0.6908          
 ##  Mcnemar's Test P-Value : &lt; 2.2e-16       
 ##                                           
-##             Sensitivity : 0.9777          
-##             Specificity : 0.5845          
-##          Pos Pred Value : 0.8557          
-##          Neg Pred Value : 0.9121          
-##              Prevalence : 0.7160          
-##          Detection Rate : 0.7000          
-##    Detection Prevalence : 0.8180          
-##       Balanced Accuracy : 0.7811          
+##             Sensitivity : 0.9722          
+##             Specificity : 0.6591          
+##          Pos Pred Value : 0.8980          
+##          Neg Pred Value : 0.8846          
+##              Prevalence : 0.7553          
+##          Detection Rate : 0.7343          
+##    Detection Prevalence : 0.8177          
+##       Balanced Accuracy : 0.8156          
 ##                                           
 ##        'Positive' Class : FALSE           
 ## </code></pre>
@@ -411,27 +423,17 @@ print(cm.fit.rpart)</code></pre>
 
 # train the Random Forest on the train data set 
 fit.rf &lt;- train( late ~ .,
-                 data = train_set, 
+                 data = limited_train_set,  # limited b/c of computation constraints
                  metric = &quot;Kappa&quot;, 
                  trControl = tc, 
                  na.action = na.pass, 
-                 method = &quot;rf&quot;)</code></pre>
-<pre><code>## Loading required package: randomForest</code></pre>
-<pre><code>## randomForest 4.6-12</code></pre>
-<pre><code>## Type rfNews() to see new features/changes/bug fixes.</code></pre>
-<pre><code>## 
-## Attaching package: 'randomForest'</code></pre>
-<pre><code>## The following object is masked from 'package:dplyr':
-## 
-##     combine</code></pre>
-<pre><code>## The following object is masked from 'package:ggplot2':
-## 
-##     margin</code></pre>
-<pre class="r"><code># use the rf model to predict the values of the training set
-fit.rf.train_pred &lt;- predict(fit.rf, train_set, type = &quot;raw&quot;, na.action = na.pass) 
+                 method = &quot;rf&quot;)
+
+# use the rf model to predict the values of the training set
+fit.rf.train_pred &lt;- predict(fit.rf, limited_train_set, type = &quot;raw&quot;, na.action = na.pass) 
 
 # create a confustion matrix of the predicted late values versus the actual late values
-cm.fit.rf &lt;- confusionMatrix(data = fit.rf.train_pred, reference = train_set$late)
+cm.fit.rf &lt;- confusionMatrix(data = fit.rf.train_pred, reference = limited_train_set$late)
 
 # review the model performance
 print(cm.fit.rf)</code></pre>
@@ -439,25 +441,25 @@ print(cm.fit.rf)</code></pre>
 ## 
 ##           Reference
 ## Prediction FALSE TRUE
-##      FALSE   711   21
-##      TRUE      5  263
+##      FALSE  3930  212
+##      TRUE     29  829
 ##                                           
-##                Accuracy : 0.974           
-##                  95% CI : (0.9621, 0.9829)
-##     No Information Rate : 0.716           
+##                Accuracy : 0.9518          
+##                  95% CI : (0.9455, 0.9576)
+##     No Information Rate : 0.7918          
 ##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
 ##                                           
-##                   Kappa : 0.935           
-##  Mcnemar's Test P-Value : 0.003264        
+##                   Kappa : 0.8437          
+##  Mcnemar's Test P-Value : &lt; 2.2e-16       
 ##                                           
-##             Sensitivity : 0.9930          
-##             Specificity : 0.9261          
-##          Pos Pred Value : 0.9713          
-##          Neg Pred Value : 0.9813          
-##              Prevalence : 0.7160          
-##          Detection Rate : 0.7110          
-##    Detection Prevalence : 0.7320          
-##       Balanced Accuracy : 0.9595          
+##             Sensitivity : 0.9927          
+##             Specificity : 0.7963          
+##          Pos Pred Value : 0.9488          
+##          Neg Pred Value : 0.9662          
+##              Prevalence : 0.7918          
+##          Detection Rate : 0.7860          
+##    Detection Prevalence : 0.8284          
+##       Balanced Accuracy : 0.8945          
 ##                                           
 ##        'Positive' Class : FALSE           
 ## </code></pre>
@@ -465,17 +467,17 @@ print(cm.fit.rf)</code></pre>
 
 #train a C5.0 Decision tree model on the train data set
 fit.C50 &lt;- train( late ~ ., 
-                  data = train_set, 
+                  data = limited_train_set, # limited b/c of computation constrains
                   metric = &quot;Kappa&quot;, 
                   trControl = tc, 
                   na.action = na.pass, 
                   method = &quot;C5.0&quot;)</code></pre>
 <pre><code>## Loading required package: C50</code></pre>
 <pre class="r"><code># use the C5.0 model to predict the values of the training set
-fit.C50.train_pred &lt;- predict(fit.C50, train_set, type = &quot;raw&quot;, na.action = na.pass)
+fit.C50.train_pred &lt;- predict(fit.C50, limited_train_set, type = &quot;raw&quot;, na.action = na.pass)
 
 # create a confustion matrix of the predicted late values versus the actual late values
-cm.fit.C50 &lt;- confusionMatrix(data = fit.C50.train_pred, reference = train_set$late)
+cm.fit.C50 &lt;- confusionMatrix(data = fit.C50.train_pred, reference = limited_train_set$late)
 
 # review the model performance
 print(cm.fit.C50)</code></pre>
@@ -483,25 +485,25 @@ print(cm.fit.C50)</code></pre>
 ## 
 ##           Reference
 ## Prediction FALSE TRUE
-##      FALSE   700   57
-##      TRUE     16  227
+##      FALSE  3819  378
+##      TRUE    140  663
 ##                                           
-##                Accuracy : 0.927           
-##                  95% CI : (0.9091, 0.9423)
-##     No Information Rate : 0.716           
+##                Accuracy : 0.8964          
+##                  95% CI : (0.8876, 0.9047)
+##     No Information Rate : 0.7918          
 ##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
 ##                                           
-##                   Kappa : 0.8123          
-##  Mcnemar's Test P-Value : 2.846e-06       
+##                   Kappa : 0.6569          
+##  Mcnemar's Test P-Value : &lt; 2.2e-16       
 ##                                           
-##             Sensitivity : 0.9777          
-##             Specificity : 0.7993          
-##          Pos Pred Value : 0.9247          
-##          Neg Pred Value : 0.9342          
-##              Prevalence : 0.7160          
-##          Detection Rate : 0.7000          
-##    Detection Prevalence : 0.7570          
-##       Balanced Accuracy : 0.8885          
+##             Sensitivity : 0.9646          
+##             Specificity : 0.6369          
+##          Pos Pred Value : 0.9099          
+##          Neg Pred Value : 0.8257          
+##              Prevalence : 0.7918          
+##          Detection Rate : 0.7638          
+##    Detection Prevalence : 0.8394          
+##       Balanced Accuracy : 0.8008          
 ##                                           
 ##        'Positive' Class : FALSE           
 ## </code></pre>
@@ -509,7 +511,7 @@ print(cm.fit.C50)</code></pre>
 
 # train a Naive Bayes model on the train data set
 fit.nb &lt;- train( late ~ .,
-                 data = train_set, 
+                 data = limited_train_set, # limited b/c of computation constraints
                  metric = &quot;Kappa&quot;, 
                  trControl = tc, 
                  na.action = na.pass, 
@@ -526,10 +528,10 @@ fit.nb &lt;- train( late ~ .,
 <pre><code>## Warning in train.default(x, y, weights = w, ...): missing values found in
 ## aggregated results</code></pre>
 <pre class="r"><code># use the Naive Bayes model to predict the values of the training set
-fit.nb.train_pred &lt;- predict(fit.nb, train_set, type =&quot;raw&quot;, na.action = na.pass)
+fit.nb.train_pred &lt;- predict(fit.nb, limited_train_set, type =&quot;raw&quot;, na.action = na.pass)
 
 # create a confusion matrix of the predicted late values versus the actual late values
-cm.fit.nb &lt;- confusionMatrix(data = fit.nb.train_pred, reference = train_set$late)
+cm.fit.nb &lt;- confusionMatrix(data = fit.nb.train_pred, reference = limited_train_set$late)
 
 # review the model performance
 print(cm.fit.nb)</code></pre>
@@ -537,43 +539,43 @@ print(cm.fit.nb)</code></pre>
 ## 
 ##           Reference
 ## Prediction FALSE TRUE
-##      FALSE   716  284
+##      FALSE  3959 1041
 ##      TRUE      0    0
-##                                           
-##                Accuracy : 0.716           
-##                  95% CI : (0.6869, 0.7438)
-##     No Information Rate : 0.716           
-##     P-Value [Acc &gt; NIR] : 0.516           
-##                                           
-##                   Kappa : 0               
-##  Mcnemar's Test P-Value : &lt;2e-16          
-##                                           
-##             Sensitivity : 1.000           
-##             Specificity : 0.000           
-##          Pos Pred Value : 0.716           
-##          Neg Pred Value :   NaN           
-##              Prevalence : 0.716           
-##          Detection Rate : 0.716           
-##    Detection Prevalence : 1.000           
-##       Balanced Accuracy : 0.500           
-##                                           
-##        'Positive' Class : FALSE           
+##                                          
+##                Accuracy : 0.7918         
+##                  95% CI : (0.7803, 0.803)
+##     No Information Rate : 0.7918         
+##     P-Value [Acc &gt; NIR] : 0.5083         
+##                                          
+##                   Kappa : 0              
+##  Mcnemar's Test P-Value : &lt;2e-16         
+##                                          
+##             Sensitivity : 1.0000         
+##             Specificity : 0.0000         
+##          Pos Pred Value : 0.7918         
+##          Neg Pred Value :    NaN         
+##              Prevalence : 0.7918         
+##          Detection Rate : 0.7918         
+##    Detection Prevalence : 1.0000         
+##       Balanced Accuracy : 0.5000         
+##                                          
+##        'Positive' Class : FALSE          
 ## </code></pre>
 <pre class="r"><code>### AdaBoost Classification Trees ###
 
 # train a AdaBoost model on the train data set
 fit.adaBoost &lt;- train( late ~ ., 
-                       data = train_set, 
+                       data = limited_train_set,  # limited b/c of computation constraints
                        metric = &quot;Kappa&quot;, 
                        trControl = tc, 
                        na.action = na.pass, 
                        method = &quot;adaboost&quot;)</code></pre>
 <pre><code>## Loading required package: fastAdaboost</code></pre>
 <pre class="r"><code># use the AdaBoost model to predict the values on the training set
-fit.adaBoost.train_pred &lt;- predict(fit.adaBoost, train_set, type = &quot;raw&quot;, na.action = na.pass) 
+fit.adaBoost.train_pred &lt;- predict(fit.adaBoost, limited_train_set, type = &quot;raw&quot;, na.action = na.pass) 
 
 #create a confusion matrix of the predicted late values versus the actual late values 
-cm.fit.adaBoost &lt;- confusionMatrix(data = fit.adaBoost.train_pred, reference = train_set$late)
+cm.fit.adaBoost &lt;- confusionMatrix(data = fit.adaBoost.train_pred, reference = limited_train_set$late)
 
 # review the model performance
 print(cm.fit.adaBoost)</code></pre>
@@ -581,25 +583,25 @@ print(cm.fit.adaBoost)</code></pre>
 ## 
 ##           Reference
 ## Prediction FALSE TRUE
-##      FALSE   691    0
-##      TRUE     25  284
+##      FALSE  3828  147
+##      TRUE    131  894
 ##                                           
-##                Accuracy : 0.975           
-##                  95% CI : (0.9633, 0.9838)
-##     No Information Rate : 0.716           
-##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                Accuracy : 0.9444          
+##                  95% CI : (0.9377, 0.9506)
+##     No Information Rate : 0.7918          
+##     P-Value [Acc &gt; NIR] : &lt;2e-16          
 ##                                           
-##                   Kappa : 0.9401          
-##  Mcnemar's Test P-Value : 1.587e-06       
+##                   Kappa : 0.8304          
+##  Mcnemar's Test P-Value : 0.3683          
 ##                                           
-##             Sensitivity : 0.9651          
-##             Specificity : 1.0000          
-##          Pos Pred Value : 1.0000          
-##          Neg Pred Value : 0.9191          
-##              Prevalence : 0.7160          
-##          Detection Rate : 0.6910          
-##    Detection Prevalence : 0.6910          
-##       Balanced Accuracy : 0.9825          
+##             Sensitivity : 0.9669          
+##             Specificity : 0.8588          
+##          Pos Pred Value : 0.9630          
+##          Neg Pred Value : 0.8722          
+##              Prevalence : 0.7918          
+##          Detection Rate : 0.7656          
+##    Detection Prevalence : 0.7950          
+##       Balanced Accuracy : 0.9129          
 ##                                           
 ##        'Positive' Class : FALSE           
 ## </code></pre>
@@ -616,34 +618,33 @@ print(cm.fit.OneR.new)</code></pre>
 <pre><code>## Confusion Matrix and Statistics
 ## 
 ##           Reference
-## Prediction FALSE TRUE
-##      FALSE   694   90
-##      TRUE     51  165
-##                                         
-##                Accuracy : 0.859         
-##                  95% CI : (0.8359, 0.88)
-##     No Information Rate : 0.745         
-##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16     
-##                                         
-##                   Kappa : 0.6092        
-##  Mcnemar's Test P-Value : 0.001373      
-##                                         
-##             Sensitivity : 0.9315        
-##             Specificity : 0.6471        
-##          Pos Pred Value : 0.8852        
-##          Neg Pred Value : 0.7639        
-##              Prevalence : 0.7450        
-##          Detection Rate : 0.6940        
-##    Detection Prevalence : 0.7840        
-##       Balanced Accuracy : 0.7893        
-##                                         
-##        'Positive' Class : FALSE         
+## Prediction FALSE  TRUE
+##      FALSE 60111  6889
+##      TRUE   1700 13136
+##                                           
+##                Accuracy : 0.895           
+##                  95% CI : (0.8929, 0.8971)
+##     No Information Rate : 0.7553          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.6888          
+##  Mcnemar's Test P-Value : &lt; 2.2e-16       
+##                                           
+##             Sensitivity : 0.9725          
+##             Specificity : 0.6560          
+##          Pos Pred Value : 0.8972          
+##          Neg Pred Value : 0.8854          
+##              Prevalence : 0.7553          
+##          Detection Rate : 0.7345          
+##    Detection Prevalence : 0.8187          
+##       Balanced Accuracy : 0.8142          
+##                                           
+##        'Positive' Class : FALSE           
 ## </code></pre>
 <pre class="r"><code># use the glm model to predict the values of the training data
-fit.glm.test_pred &lt;- predict(fit.glm, test_set, type = &quot;raw&quot;, na.action = na.pass)</code></pre>
-<pre><code>## Warning in predict.lm(object, newdata, se.fit, scale = 1, type =
-## ifelse(type == : prediction from a rank-deficient fit may be misleading</code></pre>
-<pre class="r"><code># create a confusion matrix of the predicted late values versus the actual late values
+fit.glm.test_pred &lt;- predict(fit.glm, test_set, type = &quot;raw&quot;, na.action = na.pass)
+
+# create a confusion matrix of the predicted late values versus the actual late values
 cm.fit.glm.new &lt;- confusionMatrix(data = fit.glm.test_pred, reference = test_set$late)
 
 # review the model performance
@@ -651,26 +652,26 @@ print(cm.fit.glm.new)</code></pre>
 <pre><code>## Confusion Matrix and Statistics
 ## 
 ##           Reference
-## Prediction FALSE TRUE
-##      FALSE   610   72
-##      TRUE    135  183
+## Prediction FALSE  TRUE
+##      FALSE 59986  6670
+##      TRUE   1825 13355
 ##                                           
-##                Accuracy : 0.793           
-##                  95% CI : (0.7665, 0.8177)
-##     No Information Rate : 0.745           
-##     P-Value [Acc &gt; NIR] : 0.0002174       
+##                Accuracy : 0.8962          
+##                  95% CI : (0.8941, 0.8983)
+##     No Information Rate : 0.7553          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
 ##                                           
-##                   Kappa : 0.4961          
-##  Mcnemar's Test P-Value : 1.638e-05       
+##                   Kappa : 0.6942          
+##  Mcnemar's Test P-Value : &lt; 2.2e-16       
 ##                                           
-##             Sensitivity : 0.8188          
-##             Specificity : 0.7176          
-##          Pos Pred Value : 0.8944          
-##          Neg Pred Value : 0.5755          
-##              Prevalence : 0.7450          
-##          Detection Rate : 0.6100          
-##    Detection Prevalence : 0.6820          
-##       Balanced Accuracy : 0.7682          
+##             Sensitivity : 0.9705          
+##             Specificity : 0.6669          
+##          Pos Pred Value : 0.8999          
+##          Neg Pred Value : 0.8798          
+##              Prevalence : 0.7553          
+##          Detection Rate : 0.7330          
+##    Detection Prevalence : 0.8145          
+##       Balanced Accuracy : 0.8187          
 ##                                           
 ##        'Positive' Class : FALSE           
 ## </code></pre>
@@ -685,28 +686,28 @@ print(cm.fit.knn.new)</code></pre>
 <pre><code>## Confusion Matrix and Statistics
 ## 
 ##           Reference
-## Prediction FALSE TRUE
-##      FALSE   692  103
-##      TRUE     53  152
-##                                        
-##                Accuracy : 0.844        
-##                  95% CI : (0.82, 0.866)
-##     No Information Rate : 0.745        
-##     P-Value [Acc &gt; NIR] : 2.71e-14     
-##                                        
-##                   Kappa : 0.5611       
-##  Mcnemar's Test P-Value : 8.74e-05     
-##                                        
-##             Sensitivity : 0.9289       
-##             Specificity : 0.5961       
-##          Pos Pred Value : 0.8704       
-##          Neg Pred Value : 0.7415       
-##              Prevalence : 0.7450       
-##          Detection Rate : 0.6920       
-##    Detection Prevalence : 0.7950       
-##       Balanced Accuracy : 0.7625       
-##                                        
-##        'Positive' Class : FALSE        
+## Prediction FALSE  TRUE
+##      FALSE 58852  6946
+##      TRUE   2959 13079
+##                                           
+##                Accuracy : 0.879           
+##                  95% CI : (0.8767, 0.8812)
+##     No Information Rate : 0.7553          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.6489          
+##  Mcnemar's Test P-Value : &lt; 2.2e-16       
+##                                           
+##             Sensitivity : 0.9521          
+##             Specificity : 0.6531          
+##          Pos Pred Value : 0.8944          
+##          Neg Pred Value : 0.8155          
+##              Prevalence : 0.7553          
+##          Detection Rate : 0.7191          
+##    Detection Prevalence : 0.8040          
+##       Balanced Accuracy : 0.8026          
+##                                           
+##        'Positive' Class : FALSE           
 ## </code></pre>
 <pre class="r"><code># use the rpart model to predict the values of the training set
 fit.rpart.test_pred &lt;- predict(fit.rpart, test_set, type = &quot;raw&quot;, na.action = na.pass)
@@ -719,26 +720,26 @@ print(cm.fit.rpart.new)</code></pre>
 <pre><code>## Confusion Matrix and Statistics
 ## 
 ##           Reference
-## Prediction FALSE TRUE
-##      FALSE   691   88
-##      TRUE     54  167
+## Prediction FALSE  TRUE
+##      FALSE 60111  6889
+##      TRUE   1700 13136
 ##                                           
-##                Accuracy : 0.858           
-##                  95% CI : (0.8348, 0.8791)
-##     No Information Rate : 0.745           
+##                Accuracy : 0.895           
+##                  95% CI : (0.8929, 0.8971)
+##     No Information Rate : 0.7553          
 ##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
 ##                                           
-##                   Kappa : 0.6091          
-##  Mcnemar's Test P-Value : 0.005618        
+##                   Kappa : 0.6888          
+##  Mcnemar's Test P-Value : &lt; 2.2e-16       
 ##                                           
-##             Sensitivity : 0.9275          
-##             Specificity : 0.6549          
-##          Pos Pred Value : 0.8870          
-##          Neg Pred Value : 0.7557          
-##              Prevalence : 0.7450          
-##          Detection Rate : 0.6910          
-##    Detection Prevalence : 0.7790          
-##       Balanced Accuracy : 0.7912          
+##             Sensitivity : 0.9725          
+##             Specificity : 0.6560          
+##          Pos Pred Value : 0.8972          
+##          Neg Pred Value : 0.8854          
+##              Prevalence : 0.7553          
+##          Detection Rate : 0.7345          
+##    Detection Prevalence : 0.8187          
+##       Balanced Accuracy : 0.8142          
 ##                                           
 ##        'Positive' Class : FALSE           
 ## </code></pre>
@@ -753,26 +754,26 @@ print(cm.fit.rf.new)</code></pre>
 <pre><code>## Confusion Matrix and Statistics
 ## 
 ##           Reference
-## Prediction FALSE TRUE
-##      FALSE   643   67
-##      TRUE    102  188
+## Prediction FALSE  TRUE
+##      FALSE 58871  6927
+##      TRUE   2940 13098
 ##                                           
-##                Accuracy : 0.831           
-##                  95% CI : (0.8063, 0.8537)
-##     No Information Rate : 0.745           
-##     P-Value [Acc &gt; NIR] : 4.758e-11       
+##                Accuracy : 0.8794          
+##                  95% CI : (0.8772, 0.8817)
+##     No Information Rate : 0.7553          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
 ##                                           
-##                   Kappa : 0.5744          
-##  Mcnemar's Test P-Value : 0.008913        
+##                   Kappa : 0.6503          
+##  Mcnemar's Test P-Value : &lt; 2.2e-16       
 ##                                           
-##             Sensitivity : 0.8631          
-##             Specificity : 0.7373          
-##          Pos Pred Value : 0.9056          
-##          Neg Pred Value : 0.6483          
-##              Prevalence : 0.7450          
-##          Detection Rate : 0.6430          
-##    Detection Prevalence : 0.7100          
-##       Balanced Accuracy : 0.8002          
+##             Sensitivity : 0.9524          
+##             Specificity : 0.6541          
+##          Pos Pred Value : 0.8947          
+##          Neg Pred Value : 0.8167          
+##              Prevalence : 0.7553          
+##          Detection Rate : 0.7194          
+##    Detection Prevalence : 0.8040          
+##       Balanced Accuracy : 0.8033          
 ##                                           
 ##        'Positive' Class : FALSE           
 ## </code></pre>
@@ -787,26 +788,26 @@ print(cm.fit.C50.new)</code></pre>
 <pre><code>## Confusion Matrix and Statistics
 ## 
 ##           Reference
-## Prediction FALSE TRUE
-##      FALSE   666   75
-##      TRUE     79  180
+## Prediction FALSE  TRUE
+##      FALSE 58984  6429
+##      TRUE   2827 13596
 ##                                           
-##                Accuracy : 0.846           
-##                  95% CI : (0.8221, 0.8678)
-##     No Information Rate : 0.745           
-##     P-Value [Acc &gt; NIR] : 7.691e-15       
+##                Accuracy : 0.8869          
+##                  95% CI : (0.8847, 0.8891)
+##     No Information Rate : 0.7553          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
 ##                                           
-##                   Kappa : 0.5968          
-##  Mcnemar's Test P-Value : 0.809           
+##                   Kappa : 0.6742          
+##  Mcnemar's Test P-Value : &lt; 2.2e-16       
 ##                                           
-##             Sensitivity : 0.8940          
-##             Specificity : 0.7059          
-##          Pos Pred Value : 0.8988          
-##          Neg Pred Value : 0.6950          
-##              Prevalence : 0.7450          
-##          Detection Rate : 0.6660          
-##    Detection Prevalence : 0.7410          
-##       Balanced Accuracy : 0.7999          
+##             Sensitivity : 0.9543          
+##             Specificity : 0.6790          
+##          Pos Pred Value : 0.9017          
+##          Neg Pred Value : 0.8279          
+##              Prevalence : 0.7553          
+##          Detection Rate : 0.7208          
+##    Detection Prevalence : 0.7993          
+##       Balanced Accuracy : 0.8166          
 ##                                           
 ##        'Positive' Class : FALSE           
 ## </code></pre>
@@ -821,26 +822,26 @@ print(cm.fit.nb.new)</code></pre>
 <pre><code>## Confusion Matrix and Statistics
 ## 
 ##           Reference
-## Prediction FALSE TRUE
-##      FALSE   745  255
-##      TRUE      0    0
+## Prediction FALSE  TRUE
+##      FALSE 61811 20025
+##      TRUE      0     0
 ##                                           
-##                Accuracy : 0.745           
-##                  95% CI : (0.7168, 0.7718)
-##     No Information Rate : 0.745           
-##     P-Value [Acc &gt; NIR] : 0.5168          
+##                Accuracy : 0.7553          
+##                  95% CI : (0.7523, 0.7582)
+##     No Information Rate : 0.7553          
+##     P-Value [Acc &gt; NIR] : 0.5019          
 ##                                           
 ##                   Kappa : 0               
 ##  Mcnemar's Test P-Value : &lt;2e-16          
 ##                                           
-##             Sensitivity : 1.000           
-##             Specificity : 0.000           
-##          Pos Pred Value : 0.745           
-##          Neg Pred Value :   NaN           
-##              Prevalence : 0.745           
-##          Detection Rate : 0.745           
-##    Detection Prevalence : 1.000           
-##       Balanced Accuracy : 0.500           
+##             Sensitivity : 1.0000          
+##             Specificity : 0.0000          
+##          Pos Pred Value : 0.7553          
+##          Neg Pred Value :    NaN          
+##              Prevalence : 0.7553          
+##          Detection Rate : 0.7553          
+##    Detection Prevalence : 1.0000          
+##       Balanced Accuracy : 0.5000          
 ##                                           
 ##        'Positive' Class : FALSE           
 ## </code></pre>
@@ -855,31 +856,38 @@ print(cm.fit.adaBoost.new)</code></pre>
 <pre><code>## Confusion Matrix and Statistics
 ## 
 ##           Reference
-## Prediction FALSE TRUE
-##      FALSE   635   77
-##      TRUE    110  178
+## Prediction FALSE  TRUE
+##      FALSE 56901  6490
+##      TRUE   4910 13535
 ##                                           
-##                Accuracy : 0.813           
-##                  95% CI : (0.7874, 0.8367)
-##     No Information Rate : 0.745           
-##     P-Value [Acc &gt; NIR] : 2.138e-07       
+##                Accuracy : 0.8607          
+##                  95% CI : (0.8583, 0.8631)
+##     No Information Rate : 0.7553          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
 ##                                           
-##                   Kappa : 0.5279          
-##  Mcnemar's Test P-Value : 0.01928         
+##                   Kappa : 0.6128          
+##  Mcnemar's Test P-Value : &lt; 2.2e-16       
 ##                                           
-##             Sensitivity : 0.8523          
-##             Specificity : 0.6980          
-##          Pos Pred Value : 0.8919          
-##          Neg Pred Value : 0.6181          
-##              Prevalence : 0.7450          
-##          Detection Rate : 0.6350          
-##    Detection Prevalence : 0.7120          
-##       Balanced Accuracy : 0.7752          
+##             Sensitivity : 0.9206          
+##             Specificity : 0.6759          
+##          Pos Pred Value : 0.8976          
+##          Neg Pred Value : 0.7338          
+##              Prevalence : 0.7553          
+##          Detection Rate : 0.6953          
+##    Detection Prevalence : 0.7746          
+##       Balanced Accuracy : 0.7982          
 ##                                           
 ##        'Positive' Class : FALSE           
 ## </code></pre>
 <p>Compare the models?</p>
+<p>On the training data, the following Kappa scores were achieved: *</p>
+<p>AdaBoost - Kappa of 0.8304 C5.0 - Kappa of 0.6569 GLM - Kappa of 0.6976 KNN - Kappa of 0.8444 NB - Accuray of 0.7918 (not sure why I didn’t get a Kappa in the confusion matrix) OneR - Kappa of 0.6908 RF - Kappa of 0.8437 rpart - Kappa of 0.6908</p>
+<p>On the test data, the following Kappa scores were achieved: AdaBoost - Kappa of 0.6128 C5.0 - Kappa of 0.6742 GLM - Kappa of 0.6942 KNN - Kappa of 0.6489 NB - Accuracy 0.7553 OneR - Kappa of 0.6888 RF - Kappa of 0.6503 rpart - Kappa of 0.6888</p>
+<ul>
+<li>I had to limit the training data for some of the more computationally challenging methods for train(). Even with the limited dataset, the compile time for the entire script was just over 55 minutes. This would be an area if I were looking at producing this model where I would probably rent some Amazon Web Service time to cruch through the computations. However, this limited amount of data in the training set means that some of the scores are not reflective of the model’s true predictive ability for both the training data and the test data.</li>
+</ul>
 <p>Which is best? Why?</p>
+<p>Again, given the limitation of some of the models being trained on smaller datasets, this interpretation of which model performed best on our dataset is limited, But, given the data I was able to produce I would choose a GLM logistic regression because it generalized the best on a data set it had not been trained on. This case would be the empiraclly best model to choose, but if the application needed higher interpretability I would probably choose the OneR rule. While overly simplistic, this rule performed almost as well as the GLM on new data and is easy to translate into other facets of the business application like sticking the rules into a SQL database and using Case When statements to classify predictions.</p>
 <p>```</p>
 </div>
 
