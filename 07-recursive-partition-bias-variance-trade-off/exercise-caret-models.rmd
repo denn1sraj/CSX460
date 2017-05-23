@@ -40,11 +40,10 @@ Save the caret objects with the names provided.
 # Setup Libraries
 library(caret)
 library(readr)
+library(plyr)
 library(dplyr)
-library(doMC)
 
-# setup multiple cores
-registerDoMC(cores=8)
+
 
 # Import the flights data from previous excercises
 flights <- tbl_df(read_csv("flights_clean.csv", col_names = TRUE))
@@ -75,6 +74,34 @@ train_set <- train_set[1:1000,]
 # set the train control parameters for Caret
 tc <- trainControl(method = "cv", number = 10, repeats = 3)
 
+
+### OneR Rule Learner ###
+
+# train a OneR Rule learner model on the train data set
+fit.OneR <- train( late ~ ., 
+                   data = train_set, 
+                   metric = "Kappa", 
+                   trControl = tc, 
+                   na.action = na.pass, 
+                   method = "OneR")
+
+# use the OneR model to predict the values of the training data
+fit.OneR.train_pred <- predict(fit.OneR, train_set, type = "raw", na.action = na.pass)
+
+# create a confusion matrix of the predicted late values versus the actual late values
+cm.fit.OneR <- confusionMatrix(data = fit.OneR.train_pred, reference = train_set$late)
+
+# review the model performance
+print(cm.fit.OneR)
+
+
+# setup multiple cores for models that incorporate parralellization 
+library(doMC)
+registerDoMC(cores=7)
+
+
+### Logistic Regression ###
+
 # train the glm model on the train data set
 fit.glm <- train(late ~ ., 
                  data = train_set, 
@@ -94,6 +121,8 @@ cm.fit.glm <- confusionMatrix(data = fit.glm.train_pred, reference = train_set$l
 print(cm.fit.glm)
 
 
+### K-Nearest Neighbors ###
+
 # train a knn model on the train data set
 fit.knn <- train( late ~ ., 
                   data = train_set, 
@@ -111,6 +140,8 @@ cm.fit.knn <- confusionMatrix(data = fit.knn.train_pred, reference = train_set$l
 # review the model performance
 print(cm.fit.knn)
 
+
+### Rpart Regression Trees ###
 
 # train the rpart model on the train data set
 fit.rpart <- train( late ~ .,
@@ -130,14 +161,86 @@ cm.fit.rpart <- confusionMatrix(data = fit.rpart.train_pred, reference = train_s
 print(cm.fit.rpart)
 
 
+### Random Forest ###
 
-fit.rf <- ..
-fit.c50 <- ..
-fit.nb <- ..
-fit.OneR <- ..
-fit.adaBoost <- 
+# train the Random Forest on the train data set 
+fit.rf <- train( late ~ .,
+                 data = train_set, 
+                 metric = "Kappa", 
+                 trControl = tc, 
+                 na.action = na.pass, 
+                 method = "rf")
+
+# use the rf model to predict the values of the training set
+fit.rf.train_pred <- predict(fit.rf, train_set, type = "raw", na.action = na.pass) 
+
+# create a confustion matrix of the predicted late values versus the actual late values
+cm.fit.rf <- confusionMatrix(data = fit.rf.train_pred, reference = train_set$late)
+
+# review the model performance
+print(cm.fit.rf)
+
+### Decision Tree C5.0 Algorithm ###
+
+#train a C5.0 Decision tree model on the train data set
+fit.C50 <- train( late ~ ., 
+                  data = train_set, 
+                  metric = "Kappa", 
+                  trControl = tc, 
+                  na.action = na.pass, 
+                  method = "C5.0")
+
+# use the C5.0 model to predict the values of the training set
+fit.C50.train_pred <- predict(fit.C50, train_set, type = "raw", na.action = na.pass)
+
+# create a confustion matrix of the predicted late values versus the actual late values
+cm.fit.C50 <- confusionMatrix(data = fit.C50.train_pred, reference = train_set$late)
+
+# review the model performance
+print(cm.fit.C50)
 
 
+### Naive Bayes Model ###
+
+# train a Naive Bayes model on the train data set
+fit.nb <- train( late ~ .,
+                 data = train_set, 
+                 metric = "Kappa", 
+                 trControl = tc, 
+                 na.action = na.pass, 
+                 method = "nb")
+
+
+# use the Naive Bayes model to predict the values of the training set
+fit.nb.train_pred <- predict(fit.nb, train_set, type ="raw", na.action = na.pass)
+
+# create a confusion matrix of the predicted late values versus the actual late values
+cm.fit.nb <- confusionMatrix(data = fit.C50.train_pred, reference = train_set$late)
+
+# review the model performance
+print(cm.fit.nb)
+
+### AdaBoost Classification Trees ###
+
+# train a AdaBoost model on the train data set
+fit.adaBoost <- train( late ~ ., 
+                       data = train_set, 
+                       metric = "Kappa", 
+                       trControl = tc, 
+                       na.action = na.pass, 
+                       method = "adaboost")
+
+# use the AdaBoost model to predict the values on the training set
+fit.adaBoost.train_pred <- predict(fit.adaBoost, train_set, type = "raw", na.action = na.pass) 
+
+#create a confusion matrix of the predicted late values versus the actual late values 
+cm.fit.adaBoost <- confusionMatrix(data = fit.adaBoost.train_pred, reference = train_set$late)
+
+# review the model performance
+print(cm.fit.adaBoost)
+
+
+### Comparison of the models on the test data ### 
 
 ```
 
